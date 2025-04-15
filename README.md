@@ -4,6 +4,8 @@ Define mock API endpoints in your Vite dev server that return structured, random
 
 Data is generated using [Faker.js](https://fakerjs.dev) and can be nested, paginated, and optionally seeded for repeatability.
 
+This plugin is compatible with Vite 4.x, 5.x, and 6.x.
+
 ---
 
 ## 📦 Installation
