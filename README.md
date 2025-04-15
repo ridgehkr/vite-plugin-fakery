@@ -6,6 +6,12 @@ Data is generated using [Faker.js](https://fakerjs.dev) and can be nested, pagin
 
 This plugin is compatible with Vite 4.x, 5.x, and 6.x.
 
+## Table of Contents
+
+- [Installation](#-installation)
+- [Quick Start](#-quick-start)
+- [Plugin Options](#-plugin-options)
+
 ---
 
 ## 📦 Installation
@@ -149,6 +155,42 @@ You can also test pagination by adding the `page` parameter: [http://localhost:5
 
 ---
 
+#### Singular Endpoint
+
+You can configure an endpoint to return a single object instead of an array by using the `singular` option. This is useful for endpoints that represent a single resource, such as a user profile or a specific product.
+
+```ts
+vitePluginFakery({
+  endpoints: [
+    {
+      url: '/api/user',
+      singular: true, // Enable singular response
+      responseProps: {
+        first_name: 'person.firstName',
+        last_name: 'person.lastName',
+        email: 'internet.email',
+        avatar: 'image.avatar',
+      },
+    },
+  ],
+}),
+```
+
+Open [http://localhost:5173/api/user](http://localhost:5173/api/user) in your browser to view the result. The output should look something like this:
+
+```json
+{
+  "first_name": "Noble",
+  "last_name": "Auer",
+  "email": "noble.auer@example.com",
+  "avatar": "https://avatars.githubusercontent.com/u/37640416"
+}
+```
+
+This endpoint does not include pagination or a `data` array, as it is designed to return a single object.
+
+---
+
 ### Understanding `responseProps`
 
 To specify what data will be included in your API response, you can use any of the method paths from the [Faker.js API](https://fakerjs.dev/api), for example:
@@ -185,7 +227,7 @@ responseProps: {
 
 ---
 
-### ⚙️ External JSON Config
+### External JSON Config
 
 Instead of directly including your config options in the Vite config file, you can also load them from a separate JSON file:
 

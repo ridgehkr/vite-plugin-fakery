@@ -14,6 +14,7 @@ interface EndpointConfig {
   responseProps: FakerValue
   seed?: number // Make seed endpoint-specific
   total?: number // Make total endpoint-specific
+  singular?: boolean // Add singular endpoint-specific flag
 }
 
 /**
@@ -133,23 +134,33 @@ export default function vitePluginFakery(
             return
           }
 
-          // Generate fake data for each item in the response
-          const data = Array.from({ length }).map((_, i) => {
-            const item: Record<string, any> = { id: startId + i }
-            const generated = resolveFakerValue(endpoint.responseProps)
-            return { ...item, ...generated }
-          })
+          let result: any
 
-          // Construct the consistent response structure
-          const result = {
-            total, // Total number of results
-            per_page: perPage, // Number of results per page
-            ...(endpoint.pagination && {
-              // Include pagination-specific props if enabled
-              page,
-              total_pages: totalPages,
-            }),
-            data, // Always include the generated data in a "data" array as the last property
+          if (endpoint.singular) {
+            // Generate a singular result object
+            const generated = resolveFakerValue(endpoint.responseProps)
+            result = {
+              ...generated,
+            }
+          } else {
+            // Generate fake data for each item in the response
+            const data = Array.from({ length }).map((_, i) => {
+              const item: Record<string, any> = { id: startId + i }
+              const generated = resolveFakerValue(endpoint.responseProps)
+              return { ...item, ...generated }
+            })
+
+            // Construct the consistent response structure
+            result = {
+              total, // Total number of results
+              per_page: perPage, // Number of results per page
+              ...(endpoint.pagination && {
+                // Include pagination-specific props if enabled
+                page,
+                total_pages: totalPages,
+              }),
+              data, // Always include the generated data in a "data" array as the last property
+            }
           }
 
           res.setHeader('Content-Type', 'application/json')
