@@ -29,11 +29,12 @@ import vitePluginFakery from 'vite-plugin-fakery'
 export default defineConfig({
   plugins: [
     vitePluginFakery({
-      seed: 123, // optional
       endpoints: [
+        // basic "users" endpoint with 4 props returned per result
         {
           url: '/api/users',
           perPage: 10,
+          total: 120,
           pagination: true,
           responseProps: {
             email: 'internet.email',
@@ -42,7 +43,35 @@ export default defineConfig({
             avatar: 'image.avatar',
           },
         },
-        // … more endpoints
+
+        // advanced "posts" endpoint with nested and customized props
+        {
+          url: '/api/posts',
+          perPage: 6,
+          total: 22,
+          pagination: true,
+          seed: 1234, // Optional. Seed the faker data to get consistent results
+          responseProps: {
+            title: 'lorem.sentence',
+            date: 'date.past',
+            body: 'lorem.paragraph',
+            userId: 'number.int',
+
+            // you can also nest response props
+            author: {
+              first_name: 'person.firstName',
+              last_name: 'person.lastName',
+              email: 'internet.email',
+              avatar: 'image.avatar',
+            },
+
+            // pass a function to customize a prop's output
+            excerpt: (faker) => {
+              const body = faker.lorem.paragraph()
+              return body.split(' ').slice(0, 15).join(' ') + '…'
+            },
+          },
+        },
       ],
     }),
   ],

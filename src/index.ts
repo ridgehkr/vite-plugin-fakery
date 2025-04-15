@@ -12,6 +12,8 @@ interface EndpointConfig {
   perPage: number
   pagination?: boolean
   responseProps: FakerValue
+  seed?: number // Make seed endpoint-specific
+  total?: number // Make total endpoint-specific
 }
 
 /**
@@ -19,7 +21,6 @@ interface EndpointConfig {
  */
 interface FakeryOptions {
   endpoints: EndpointConfig[]
-  seed?: number
 }
 
 /**
@@ -93,25 +94,44 @@ export default function vitePluginFakery(
       ? loadConfigFromFile(optionsOrPath)
       : optionsOrPath
 
-  // Seed the faker generator for consistent results (if desired)
-  if (options.seed !== undefined) {
-    faker.seed(options.seed)
+  if (!Array.isArray(options?.endpoints)) {
+    throw new Error(
+      'vite-plugin-fakery: Invalid configuration. The "endpoints" param must be specified.',
+    )
   }
 
   return {
     name: 'vite-plugin-fakery',
     configureServer(server) {
       for (const endpoint of options.endpoints) {
+        // Seed the faker generator for this endpoint (if specified)
+        if (endpoint.seed) {
+          faker.seed(endpoint.seed)
+        }
+
         server.middlewares.use(endpoint.url, (req, res) => {
           const url = new URL(req.url || '', `http://${req.headers.host}`)
           const page = parseInt(url.searchParams.get('page') || '1', 10)
-          const perPage = endpoint.perPage
-          const total = endpoint.pagination ? 100 : perPage
+          const perPage = endpoint.perPage || 10
+          const total = endpoint.total || 100 // Default total to 100 if not provided
           const totalPages = endpoint.pagination
             ? Math.ceil(total / perPage)
             : 1
           const startId = endpoint.pagination ? (page - 1) * perPage + 1 : 1
-          const length = perPage
+          const length = Math.min(perPage, total - startId + 1) // Ensure we don't exceed the total
+
+          // Check if the requested page is out of bounds
+          if (endpoint.pagination && (page < 1 || page > totalPages)) {
+            res.setHeader('Content-Type', 'application/json')
+            res.statusCode = 400
+            res.end(
+              JSON.stringify({
+                error: 'Invalid page number',
+                message: `Page ${page} is out of bounds. Total pages: ${totalPages}.`,
+              }),
+            )
+            return
+          }
 
           // Generate fake data for each item in the response
           const data = Array.from({ length }).map((_, i) => {
