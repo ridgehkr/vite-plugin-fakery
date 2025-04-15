@@ -1,0 +1,35 @@
+{
+  "name": "vite-plugin-fakery",
+  "version": "1.0.0",
+  "description": "Mock API plugin for Vite using Faker.js",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "exports": {
+    ".": {
+      "import": "./dist/index.js",
+      "types": "./dist/index.d.ts"
+    }
+  },
+  "scripts": {
+    "build": "tsc",
+    "prepublishOnly": "npm run build"
+  },
+  "keywords": [
+    "vite",
+    "plugin",
+    "faker",
+    "mock",
+    "api"
+  ],
+  "author": "Your Name",
+  "license": "MIT",
+  "dependencies": {
+    "@faker-js/faker": "^8.0.2"
+  },
+  "peerDependencies": {
+    "vite": "^4.0.0"
+  },
+  "devDependencies": {
+    "@types/node": "^22.14.1"
+  }
+}
