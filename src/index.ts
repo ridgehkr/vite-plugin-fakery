@@ -140,16 +140,17 @@ export default function vitePluginFakery(
             return { ...item, ...generated }
           })
 
-          // Return paginated or flat response format depending on config
-          const result = endpoint.pagination
-            ? {
-                page,
-                per_page: perPage,
-                total,
-                total_pages: totalPages,
-                data,
-              }
-            : data
+          // Construct the consistent response structure
+          const result = {
+            total, // Total number of results
+            per_page: perPage, // Number of results per page
+            ...(endpoint.pagination && {
+              // Include pagination-specific props if enabled
+              page,
+              total_pages: totalPages,
+            }),
+            data, // Always include the generated data in a "data" array as the last property
+          }
 
           res.setHeader('Content-Type', 'application/json')
           res.end(JSON.stringify(result))
