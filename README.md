@@ -6,11 +6,15 @@ Data is generated using [Faker.js](https://fakerjs.dev) and can be nested, pagin
 
 This plugin is compatible with Vite 4.x, 5.x, and 6.x.
 
+---
+
 ## Table of Contents
 
-- [Installation](#-installation)
-- [Quick Start](#-quick-start)
-- [Plugin Options](#-plugin-options)
+- [📦 Installation](#-installation)
+- [🚀 Quick Start](#-quick-start)
+- [⚙️ Plugin Options](#️-plugin-options)
+- [🔗 Related](#-related)
+- [🪪 License](#-license)
 
 ---
 
@@ -63,7 +67,7 @@ vitePluginFakery({
 }),
 ```
 
-Open [http://localhost:5173/api/users](`http://localhost:5173/api/users`) in your browser to view the results. The output should look something like this:
+Open `http://localhost:<vite-port>/api/users` in your browser to view the results. The output should look something like this:
 
 ```json
 {
@@ -80,14 +84,13 @@ Open [http://localhost:5173/api/users](`http://localhost:5173/api/users`) in you
       "first_name": "Wilfredo",
       "last_name": "Thompson"
     }
-    // … more results
   ]
 }
 ```
 
-#### Advanced Options
+---
 
-You can enable pagination,
+#### Advanced Options
 
 ```ts
 vitePluginFakery({
@@ -123,17 +126,27 @@ vitePluginFakery({
 }),
 ```
 
-Open [http://localhost:5173/api/posts](`http://localhost:5173/api/posts`) in your browser. The output should look something like this:
+You can override the default `total` and `perPage` values by passing them as query parameters in the URL. For example:
+
+```http
+GET /api/posts?per_page=5&total=50&page=2
+```
+
+The above request will return the second page of results, with 5 items per page and a total of 50 items.
+
+---
+
+#### Example Response
 
 ```json
 {
-  "total": 22,
-  "per_page": 6,
-  "page": 1,
-  "total_pages": 4,
+  "total": 50,
+  "per_page": 5,
+  "page": 2,
+  "total_pages": 10,
   "data": [
     {
-      "id": 1,
+      "id": 6,
       "title": "Quod crustulum correptius adeptio dedecor astrum.",
       "date": "2024-11-15T08:06:05.929Z",
       "body": "Denego ambulo vorago verbera. Non abundans velociter verus dapifer. Aeternus consequuntur caelestis quod subiungo contabesco desidero benevolentia desparatus.",
@@ -145,13 +158,24 @@ Open [http://localhost:5173/api/posts](`http://localhost:5173/api/posts`) in you
         "avatar": "https://avatars.githubusercontent.com/u/37640416"
       },
       "excerpt": "Clibanus copiose corrigo. Tres cultura venia adduco curso assentator abbas. Adhuc termes ara curso patrocinor…"
+    },
+    {
+      "id": 7,
+      "title": "Aliquid asperiores voluptas.",
+      "date": "2024-11-16T08:06:05.929Z",
+      "body": "Lorem ipsum dolor sit amet, consectetur adipiscing elit.",
+      "userId": 2011480696291329,
+      "author": {
+        "first_name": "John",
+        "last_name": "Doe",
+        "email": "john.doe@example.com",
+        "avatar": "https://avatars.githubusercontent.com/u/37640417"
+      },
+      "excerpt": "Lorem ipsum dolor sit amet, consectetur adipiscing elit…"
     }
-    // … more results
   ]
 }
 ```
-
-You can also test pagination by adding the `page` parameter: [http://localhost:5173/api/posts?**page=2**](`http://localhost:5173/api/posts?page=2`). This will return the 2nd page of results.
 
 ---
 
@@ -176,7 +200,9 @@ vitePluginFakery({
 }),
 ```
 
-Open [http://localhost:5173/api/user](http://localhost:5173/api/user) in your browser to view the result. The output should look something like this:
+**Note:** The `perPage` and `total` options are not applicable for `singular` endpoints.
+
+Open `http://localhost:<vite-port>/api/user` in your browser to view the result. The output should look something like this:
 
 ```json
 {
@@ -225,9 +251,11 @@ responseProps: {
 }
 ```
 
+**Note:** The `responseProps` object is resolved recursively, allowing you to use deeply nested structures or custom functions for dynamic values.
+
 ---
 
-### External JSON Config
+### ⚙️ External JSON Config
 
 Instead of directly including your config options in the Vite config file, you can also load them from a separate JSON file:
 
@@ -261,22 +289,17 @@ export default defineConfig({
 
 ---
 
-## ⚙️ Plugin Options
+### ⚙️ Plugin Options
 
-| Option      | Type               | Description                    |
-| ----------- | ------------------ | ------------------------------ |
-| `endpoints` | `EndpointConfig[]` | Array of API endpoints to mock |
-
-### `EndpointConfig`
-
-| Field           | Type         | Description                                                 |
-| --------------- | ------------ | ----------------------------------------------------------- |
-| `url`           | `string`     | API path (e.g. `/api/users`)                                |
-| `total`         | `number`     | Total number of items to return                             |
-| `pagination`    | `boolean`    | Whether to split results into pages                         |
-| `perPage`       | `number`     | Number of items per page to return                          |
-| `responseProps` | `FakerValue` | Structure of faker values (string paths, functions, nested) |
-| `seed`          | `number`     | _Optional_. Seed to make output deterministic               |
+| Option          | Type         | Description                                                                                                 |
+| --------------- | ------------ | ----------------------------------------------------------------------------------------------------------- |
+| `url`           | `string`     | API path (e.g. `/api/users`)                                                                                |
+| `total`         | `number`     | Total number of items to return. Defaults to `100`. Can be overridden via `?total=<value>` in the URL.      |
+| `perPage`       | `number`     | Number of items per page to return. Defaults to `10`. Can be overridden via `?per_page=<value>` in the URL. |
+| `pagination`    | `boolean`    | Whether to split results into pages                                                                         |
+| `responseProps` | `FakerValue` | Structure of faker values (string paths, functions, nested)                                                 |
+| `seed`          | `number`     | _Optional_. Seed to make output deterministic                                                               |
+| `singular`      | `boolean`    | _Optional_. Whether the endpoint returns a single object                                                    |
 
 ---
 

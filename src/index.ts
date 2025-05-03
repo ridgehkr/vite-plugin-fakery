@@ -105,6 +105,13 @@ export default function vitePluginFakery(
     name: 'vite-plugin-fakery',
     configureServer(server) {
       for (const endpoint of options.endpoints) {
+        // Log the endpoint URL and its configuration
+        console.log(
+          `Mock endpoint registered: ${endpoint.url} ${
+            endpoint.singular ? '(singular)' : '(paginated)'
+          }`,
+        )
+
         // Seed the faker generator for this endpoint (if specified)
         if (endpoint.seed) {
           faker.seed(endpoint.seed)
@@ -112,9 +119,18 @@ export default function vitePluginFakery(
 
         server.middlewares.use(endpoint.url, (req, res) => {
           const url = new URL(req.url || '', `http://${req.headers.host}`)
+
+          // Parse `per_page` and `total` from URL params, falling back to endpoint defaults
+          const perPage = parseInt(
+            url.searchParams.get('per_page') || `${endpoint.perPage || 10}`,
+            10,
+          )
+          const total = parseInt(
+            url.searchParams.get('total') || `${endpoint.total || 100}`,
+            10,
+          )
+
           const page = parseInt(url.searchParams.get('page') || '1', 10)
-          const perPage = endpoint.perPage || 10
-          const total = endpoint.total || 100 // Default total to 100 if not provided
           const totalPages = endpoint.pagination
             ? Math.ceil(total / perPage)
             : 1
