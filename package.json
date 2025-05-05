@@ -1,7 +1,7 @@
 {
   "name": "vite-plugin-fakery",
   "version": "1.0.0alpha",
-  "description": "Mock API plugin for Vite using Faker.js",
+  "description": "Vite plugin to mock frontend APIs with realistic data from Faker",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
   "type": "module",
@@ -14,7 +14,9 @@
   "scripts": {
     "build": "tsc",
     "clean": "rm -rf dist",
-    "prepublishOnly": "npm run clean && npm run build"
+    "prepublishOnly": "npm run clean && npm run build",
+    "test": "vitest run",
+    "test:watch": "vitest"
   },
   "keywords": [
     "vite",
@@ -23,7 +25,7 @@
     "mock",
     "api"
   ],
-  "author": "Your Name",
+  "author": "Caleb Pierce - https://calebpierce.dev",
   "license": "MIT",
   "peerDependencies": {
     "@faker-js/faker": "^8.0.2",
@@ -31,6 +33,7 @@
   },
   "devDependencies": {
     "@types/node": "^22.14.1",
-    "typescript": "^5.8.3"
+    "typescript": "^5.8.3",
+    "vitest": "^3.1.2"
   }
 }

@@ -1,0 +1,39 @@
+import { faker } from '@faker-js/faker'
+import { FakerDefinition } from './types'
+
+/**
+ * Recursively resolves a value from the faker library.
+ * Accepts strings (e.g., "internet.email"), functions, nested objects, and arrays.
+ *
+ * @param definition - A string path, function, object, or array representing faker values
+ * @returns Fully resolved fake value
+ */
+export function resolveFakerValue(definition: FakerDefinition): any {
+  if (typeof definition === 'function') {
+    return definition(faker)
+  }
+
+  if (typeof definition === 'string') {
+    const pathParts = definition.split('.')
+    let result: any = faker
+    for (const part of pathParts) {
+      result = result?.[part]
+    }
+    return typeof result === 'function' ? result() : result
+  }
+
+  if (Array.isArray(definition)) {
+    return definition.map((def) => resolveFakerValue(def))
+  }
+
+  if (typeof definition === 'object' && definition !== null) {
+    return Object.fromEntries(
+      Object.entries(definition).map(([key, val]) => [
+        key,
+        resolveFakerValue(val),
+      ]),
+    )
+  }
+
+  return null
+}
