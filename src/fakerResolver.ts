@@ -3,7 +3,7 @@ import { FakerDefinition } from './types'
 
 /**
  * Recursively resolves a value from the faker library.
- * Accepts strings (e.g., "internet.email"), functions, nested objects, and arrays.
+ * Accepts Fakery data type strings (e.g., "internet.email"), functions, nested objects, and arrays.
  *
  * @param definition - A string path, function, object, or array representing faker values
  * @returns Fully resolved fake value
