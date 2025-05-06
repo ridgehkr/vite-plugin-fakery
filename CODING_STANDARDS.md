@@ -7,7 +7,7 @@ Thank you for contributing to vite-plugin-fakery! We're excited you'd like to he
 ## General Guidelines
 
 - **Code Style**: Use [Prettier](https://prettier.io/) for code formatting. The project includes a `.prettierrc` file with the required configuration.
-- **Linting**: Ensure your code passes all linting checks before submitting a pull request.
+- **Linting**: Ensure your code passes all linting checks before submitting a pull request. (Husky will run a linting check on every commit)
 - **TypeScript**: Use TypeScript for all new files and ensure type safety throughout the codebase.
 - **Comments**: Write clear and concise comments for complex logic or non-obvious code. Use JSDoc-style comments for functions and methods.
 
