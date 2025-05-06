@@ -1,13 +1,17 @@
 {
   "name": "vite-plugin-fakery",
-  "version": "1.0.0alpha",
+  "version": "1.0.0",
   "description": "Vite plugin to mock frontend APIs with realistic data from Faker",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
+  "files": [
+    "dist"
+  ],
   "type": "module",
   "exports": {
     ".": {
       "import": "./dist/index.js",
+      "require": "./dist/index.js",
       "types": "./dist/index.d.ts"
     }
   },
