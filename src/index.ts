@@ -1,5 +1,5 @@
-import { Plugin } from 'vite'
-import { FakeryPluginOptions } from './types'
+import type { Plugin } from 'vite'
+import type { FakeryPluginOptions } from './types'
 import { loadConfigFromFile } from './config.js'
 import { createEndpointHandler } from './handlers.js'
 
@@ -20,7 +20,7 @@ export default function vitePluginFakery(
 
   if (!Array.isArray(options?.endpoints)) {
     throw new Error(
-      `vite-plugin-fakery: Invalid configuration. The "endpoints" param must be specified.`,
+      'vite-plugin-fakery: Invalid configuration. The "endpoints" param must be specified.',
     )
   }
 

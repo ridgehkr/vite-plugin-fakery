@@ -1,7 +1,7 @@
 import { faker } from '@faker-js/faker'
 import { resolveFakerValue } from './fakerResolver.js'
-import { EndpointConfig } from './types'
-import { IncomingMessage, ServerResponse } from 'http'
+import type { EndpointConfig } from './types'
+import type { IncomingMessage, ServerResponse } from 'http'
 
 /**
  * Creates a request handler for a specific endpoint config.

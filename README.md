@@ -1,10 +1,10 @@
 # vite-plugin-fakery
 
-Define mock API endpoints in your Vite dev server that return structured, randomized JSON data. Useful for building and testing UIs without relying on a real backend.
+Define mock API endpoints in your [Vite](https://vite.dev/) dev server that return structured, randomized JSON data. Useful for building and testing UIs without relying on a real backend.
 
 Data is generated using [Faker.js](https://fakerjs.dev) and can be nested, paginated, and optionally seeded for repeatability.
 
-This plugin is compatible with Vite 4.x, 5.x, and 6.x.
+This plugin is compatible with Vite 4.x+.
 
 ---
 
@@ -12,7 +12,7 @@ This plugin is compatible with Vite 4.x, 5.x, and 6.x.
 
 - [📦 Installation](#-installation)
 - [🚀 Quick Start](#-quick-start)
-- [⚙️ Plugin Options](#️-plugin-options)
+- [⚙️ Configuration Options](#️-configuration-options)
 - [🔗 Related](#-related)
 - [🪪 License](#-license)
 
@@ -30,11 +30,12 @@ _Note:_ `@faker-js/faker` is a peer dependency. It must be installed alongside t
 
 ## 🚀 Quick Start
 
-### 1. Add the plugin in your `vite.config.ts`
+### 1. Add the plugin to your Vite config
 
 Import the plugin and add it to your Vite `plugins` array:
 
 ```ts
+import { defineConfig } from 'vite'
 import vitePluginFakery from 'vite-plugin-fakery'
 
 export default defineConfig({
@@ -54,6 +55,9 @@ export default defineConfig({
 Each object you add to the `endpoints` array defines a separate endpoint. The following example creates one endpoint at `/api/users` that returns a paginated array of users (`first_name` and `last_name`. An `id` will also automatically be included.):
 
 ```ts
+import { defineConfig } from 'vite'
+import vitePluginFakery from 'vite-plugin-fakery'
+
 vitePluginFakery({
   endpoints: [
     {
@@ -90,17 +94,35 @@ Open `http://localhost:<vite-port>/api/users` in your browser to view the result
 
 ---
 
-#### Advanced Options
+## ⚙️ Configuration Options
+
+Each endpoint can be individually configured with the following:
+
+| Option          | Type         | Description                                                                                                                                         |
+| --------------- | ------------ | --------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `url`           | `string`     | API path (e.g. `/api/users`)                                                                                                                        |
+| `total`         | `number`     | Total number of items to return. Defaults to `100`. Can be overridden via `?total=<value>` in the URL.                                              |
+| `perPage`       | `number`     | Number of items per page to return. Defaults to `10`. Can be overridden via `?per_page=<value>` in the URL.                                         |
+| `pagination`    | `boolean`    | Whether to split results into pages                                                                                                                 |
+| `seed`          | `number`     | _Optional_. Seed to make output deterministic                                                                                                       |
+| `singular`      | `boolean`    | _Optional_. Whether the endpoint returns an array of object as defined by `responseProps` (`false`, default) or a single, unwrapped object (`true`) |
+| `responseProps` | `FakerValue` | Structure of Faker.js values (string paths, functions, nested)                                                                                      |
+
+### Example
 
 ```ts
+import { defineConfig } from 'vite'
+import vitePluginFakery from 'vite-plugin-fakery'
+
 vitePluginFakery({
   endpoints: [
     {
       url: '/api/posts',
-      perPage: 6,
       total: 22,
+      perPage: 6,
       pagination: true,
-      seed: 1234, // Optional. Seed the faker data to get consistent results
+      seed: 1234,
+      singular: false,
       responseProps: {
         title: 'lorem.sentence',
         date: 'date.past',
@@ -122,11 +144,12 @@ vitePluginFakery({
         },
       },
     },
+    // … more endpoints
   ],
 }),
 ```
 
-You can override the default `total` and `perPage` values by passing them as query parameters in the URL. For example:
+You can also override the default `total` and `perPage` values by passing them as query parameters in the URL. For example:
 
 ```http
 GET /api/posts?per_page=5&total=50&page=2
@@ -134,9 +157,7 @@ GET /api/posts?per_page=5&total=50&page=2
 
 The above request will return the second page of results, with 5 items per page and a total of 50 items.
 
----
-
-#### Example Response
+#### Response, with Overridden URL Parameters
 
 ```json
 {
@@ -177,13 +198,14 @@ The above request will return the second page of results, with 5 items per page 
 }
 ```
 
----
-
 #### Singular Endpoint
 
 You can configure an endpoint to return a single object instead of an array by using the `singular` option. This is useful for endpoints that represent a single resource, such as a user profile or a specific product.
 
 ```ts
+import { defineConfig } from 'vite'
+import vitePluginFakery from 'vite-plugin-fakery'
+
 vitePluginFakery({
   endpoints: [
     {
@@ -251,7 +273,7 @@ responseProps: {
 }
 ```
 
-**Note:** The `responseProps` object is resolved recursively, allowing you to use deeply nested structures or custom functions for dynamic values.
+`responseProps` is resolved recursively, allowing you to use deeply nested structures or custom functions for dynamic values.
 
 ---
 
@@ -259,9 +281,12 @@ responseProps: {
 
 Instead of directly including your config options in the Vite config file, you can also load them from a separate JSON file:
 
-**File: `vite.config.ts`**
+**Vite config:**
 
 ```ts
+import { defineConfig } from 'vite'
+import vitePluginFakery from 'vite-plugin-fakery'
+
 export default defineConfig({
   // … other Vite options
   plugins: [
@@ -287,26 +312,28 @@ export default defineConfig({
 }
 ```
 
----
+## ✨ Contributing
 
-### ⚙️ Plugin Options
+Contributions are welcome! To get started, please follow these guidelines:
 
-| Option          | Type         | Description                                                                                                 |
-| --------------- | ------------ | ----------------------------------------------------------------------------------------------------------- |
-| `url`           | `string`     | API path (e.g. `/api/users`)                                                                                |
-| `total`         | `number`     | Total number of items to return. Defaults to `100`. Can be overridden via `?total=<value>` in the URL.      |
-| `perPage`       | `number`     | Number of items per page to return. Defaults to `10`. Can be overridden via `?per_page=<value>` in the URL. |
-| `pagination`    | `boolean`    | Whether to split results into pages                                                                         |
-| `responseProps` | `FakerValue` | Structure of faker values (string paths, functions, nested)                                                 |
-| `seed`          | `number`     | _Optional_. Seed to make output deterministic                                                               |
-| `singular`      | `boolean`    | _Optional_. Whether the endpoint returns a single object                                                    |
+### Reporting Issues
 
----
+If you encounter a bug or have a feature request, please open an issue in the [Issues](https://github.com/ridgehkr/vite-plugin-fakery/issues) section. Provide as much detail as possible, including steps to reproduce the issue or a clear description of the feature you'd like to see.
+
+### Submitting Pull Requests
+
+1. **Fork the Repository**: Create a fork of the repository to work on your changes.
+2. **Create a Branch**: Use a descriptive branch name (e.g., `fix-bug-123` or `add-new-feature`).
+3. **Follow Coding Standards**: Ensure your changes adhere to the [Coding Standards](CODING_STANDARDS.md).
+4. **Make Changes**: Implement your changes, ensuring they align with the project's coding standards.
+5. **Write Tests**: Add or update tests (`/test`) to cover your changes, if applicable.
+6. **Run Tests**: Ensure all tests pass locally before submitting your pull request.
+7. **Submit a Pull Request**: Open a pull request in the [Pull Requests](https://github.com/ridgehkr/vite-plugin-fakery/pulls) section. Provide a clear description of your changes and reference any related issues.
 
 ## 🔗 Related
 
 - [Faker.js API Docs](https://fakerjs.dev/api)
-- [Vite Plugin Guide](https://vitejs.dev/guide/using-plugins.html)
+- [Vite config](https://vite.dev/config/)
 
 ---
 

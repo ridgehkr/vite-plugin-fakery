@@ -1,6 +1,6 @@
 import fs from 'fs'
 import path from 'path'
-import { FakeryPluginOptions } from './types'
+import type { FakeryPluginOptions } from './types'
 
 /**
  * Loads plugin config from a JSON file.

@@ -1,5 +1,5 @@
 import { faker } from '@faker-js/faker'
-import { FakerDefinition } from './types'
+import type { FakerDefinition } from './types'
 
 /**
  * Recursively resolves a value from the faker library.
