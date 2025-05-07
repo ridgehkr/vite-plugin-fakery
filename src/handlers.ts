@@ -11,6 +11,13 @@ import type { IncomingMessage, ServerResponse } from 'http'
  * @returns Middleware-compatible handler function
  */
 export function createEndpointHandler(endpoint: EndpointConfig) {
+  if (
+    !endpoint ||
+    typeof endpoint.url !== 'string' ||
+    !endpoint.responseProps
+  ) {
+    throw new Error('Missing required fields in endpoint config')
+  }
   if (endpoint.seed) {
     faker.seed(endpoint.seed)
   }

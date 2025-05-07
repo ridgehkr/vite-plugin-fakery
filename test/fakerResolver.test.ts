@@ -31,4 +31,27 @@ describe('resolveFakerValue', () => {
     expect(Array.isArray(values)).toBe(true)
     expect(values.length).toBe(2)
   })
+
+  it('resolves deeply nested structures', () => {
+    const nested = {
+      user: {
+        profile: {
+          id: 'string.uuid',
+          info: {
+            name: 'person.fullName',
+            contact: {
+              email: 'internet.email',
+              phones: ['phone.number', 'phone.number'],
+            },
+          },
+        },
+        tags: ['word.noun', 'word.verb'],
+      },
+    }
+    const result = resolveFakerValue(nested)
+    expect(result.user.profile).toHaveProperty('id')
+    expect(result.user.profile.info.contact).toHaveProperty('email')
+    expect(Array.isArray(result.user.profile.info.contact.phones)).toBe(true)
+    expect(result.user.tags.length).toBe(2)
+  })
 })
