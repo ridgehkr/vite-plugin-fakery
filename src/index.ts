@@ -4,7 +4,7 @@ import { loadConfigFromFile } from './config.js'
 import { createEndpointHandler } from './handlers.js'
 
 /**
- * Vite plugin to register mock API endpoints using Faker.js.
+ * Vite plugin to register mock API endpoints using data from Faker.js.
  *
  * @param optionsOrPath - Either an object with plugin options or a path to a JSON file
  * @returns A configured Vite plugin

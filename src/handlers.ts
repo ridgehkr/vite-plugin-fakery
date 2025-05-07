@@ -22,6 +22,12 @@ export function createEndpointHandler(endpoint: EndpointConfig) {
     faker.seed(endpoint.seed)
   }
 
+  /**
+   * Handles a request to the endpoint.
+   *
+   * @param req - Node HTTP IncomingMessage object
+   * @param res - Node HTTP ServerResponse object
+   */
   return (req: IncomingMessage, res: ServerResponse) => {
     const url = new URL(req.url || '', `http://${req.headers.host}`)
 
@@ -38,6 +44,7 @@ export function createEndpointHandler(endpoint: EndpointConfig) {
     const startId = endpoint.pagination ? (page - 1) * perPage + 1 : 1
     const length = Math.min(perPage, total - startId + 1)
 
+    // Handle invalid page numbers
     if (endpoint.pagination && (page < 1 || page > totalPages)) {
       sendJson(res, 400, {
         error: 'Invalid page number',
@@ -46,6 +53,7 @@ export function createEndpointHandler(endpoint: EndpointConfig) {
       return
     }
 
+    // Generate response content from Faker
     const result = endpoint.singular
       ? resolveFakerValue(endpoint.responseProps)
       : {

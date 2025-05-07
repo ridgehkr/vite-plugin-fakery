@@ -13,6 +13,7 @@ export function resolveFakerValue(definition: FakerDefinition): any {
     return definition(faker)
   }
 
+  // Handle string paths
   if (typeof definition === 'string') {
     const pathParts = definition.split('.')
     let result: any = faker
@@ -22,10 +23,12 @@ export function resolveFakerValue(definition: FakerDefinition): any {
     return typeof result === 'function' ? result() : result
   }
 
+  // Handle arrays
   if (Array.isArray(definition)) {
     return definition.map((def) => resolveFakerValue(def))
   }
 
+  // Handle objects
   if (typeof definition === 'object' && definition !== null) {
     return Object.fromEntries(
       Object.entries(definition).map(([key, val]) => [

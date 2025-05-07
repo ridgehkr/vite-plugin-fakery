@@ -3,7 +3,7 @@ import fs from 'fs'
 import path from 'path'
 import { loadConfigFromFile } from '../src/config'
 
-// Setup a mock endpoint config file
+// write a simple mock endpoint config file
 const mockConfig = {
   endpoints: [
     {
@@ -15,6 +15,7 @@ const mockConfig = {
 const tempFilePath = path.resolve(__dirname, './tempConfig.json')
 fs.writeFileSync(tempFilePath, JSON.stringify(mockConfig))
 
+// test loadConfigFromFile with ./tempConfig.json
 describe('loadConfigFromFile', () => {
   it('loads config from valid JSON file', () => {
     const config = loadConfigFromFile(tempFilePath)
@@ -29,5 +30,4 @@ describe('loadConfigFromFile', () => {
   })
 })
 
-// Cleanup
 afterAll(() => fs.unlinkSync(tempFilePath))
