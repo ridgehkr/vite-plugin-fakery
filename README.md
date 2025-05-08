@@ -30,9 +30,9 @@ _Note:_ `@faker-js/faker` is a peer dependency. It must be installed alongside t
 
 ## 🚀 Quick Start
 
-### 1. Add the plugin to your Vite config
+### Add the plugin to your Vite config and define your endpoints
 
-Import the plugin and add it to your Vite `plugins` array:
+Import the plugin and add it to your Vite `plugins` config. Each object you add to the `endpoints` array defines a separate endpoint. The following example creates one endpoint at `/api/users` that returns a paginated array of users (`first_name` and `last_name`). An `id` will also automatically be included.
 
 ```ts
 import { defineConfig } from 'vite'
@@ -43,34 +43,20 @@ export default defineConfig({
   plugins: [
     vitePluginFakery({
       endpoints: [
-        // endpoints defined here. See step 2.
+        {
+          url: '/api/users',
+          responseProps: {
+            first_name: 'person.firstName',
+            last_name: 'person.lastName',
+          },
+        },
       ],
     }),
   ],
 })
 ```
 
-### 2. Add endpoint configuration
-
-Each object you add to the `endpoints` array defines a separate endpoint. The following example creates one endpoint at `/api/users` that returns a paginated array of users (`first_name` and `last_name`. An `id` will also automatically be included.):
-
-```ts
-import { defineConfig } from 'vite'
-import vitePluginFakery from 'vite-plugin-fakery'
-
-vitePluginFakery({
-  endpoints: [
-    {
-      url: '/api/users',
-      responseProps: {
-        first_name: 'person.firstName',
-        last_name: 'person.lastName',
-      },
-    },
-  ],
-}),
-```
-
+### See the Results
 Open `http://localhost:<vite-port>/api/users` in your browser to view the results. The output should look something like this:
 
 ```json
