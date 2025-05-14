@@ -9,6 +9,10 @@ import type { FakerDefinition } from './types'
  * @returns Fully resolved fake value
  */
 export function resolveFakerValue(definition: FakerDefinition): any {
+  if (typeof definition === 'undefined') {
+    throw new Error(`Invalid Faker path: ${definition}`)
+  }
+
   if (typeof definition === 'function') {
     return definition(faker)
   }
@@ -19,6 +23,9 @@ export function resolveFakerValue(definition: FakerDefinition): any {
     let result: any = faker
     for (const part of pathParts) {
       result = result?.[part]
+    }
+    if (typeof result === 'undefined') {
+      throw new Error(`Invalid Faker path: ${definition}`)
     }
     return typeof result === 'function' ? result() : result
   }

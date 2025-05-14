@@ -98,15 +98,19 @@ Open `http://localhost:<vite-port>/api/users` in your browser to view the result
 
 Each endpoint can be individually configured with the following:
 
-| Option          | Type         | Description                                                                                                                                         |
-| --------------- | ------------ | --------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `url`           | `string`     | API path (e.g. `/api/users`)                                                                                                                        |
-| `total`         | `number`     | Total number of items to return. Defaults to `100`. Can be overridden via `?total=<value>` in the URL.                                              |
-| `perPage`       | `number`     | Number of items per page to return. Defaults to `10`. Can be overridden via `?per_page=<value>` in the URL.                                         |
-| `pagination`    | `boolean`    | Whether to split results into pages                                                                                                                 |
-| `seed`          | `number`     | _Optional_. Seed to make output deterministic                                                                                                       |
-| `singular`      | `boolean`    | _Optional_. Whether the endpoint returns an array of object as defined by `responseProps` (`false`, default) or a single, unwrapped object (`true`) |
-| `responseProps` | `FakerValue` | Structure of Faker.js values (string paths, functions, nested)                                                                                      |
+| Option           | Type                    | Description                                                                                                                                         |
+| ---------------- | ----------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------- | ----- | ------------ | ------------------------------------------------------------------------------------- |
+| `url`            | `string`                | API path (e.g. `/api/users`)                                                                                                                        |
+| `total`          | `number`                | Total number of items to return. Defaults to `100`. Can be overridden via `?total=<value>` in the URL.                                              |
+| `perPage`        | `number`                | Number of items per page to return. Defaults to `10`. Can be overridden via `?per_page=<value>` in the URL.                                         |
+| `pagination`     | `boolean`               | Whether to split results into pages                                                                                                                 |
+| `seed`           | `number`                | _Optional_. Seed to make output deterministic                                                                                                       |
+| `singular`       | `boolean`               | _Optional_. Whether the endpoint returns an array of object as defined by `responseProps` (`false`, default) or a single, unwrapped object (`true`) |
+| `responseProps`  | `FakerValue`            | Structure of Faker.js values (string paths, functions, nested)                                                                                      |
+| `methods`        | `('GET'                 | 'POST'                                                                                                                                              | 'PUT' | 'DELETE')[]` | _Optional_. Restricts the endpoint to specific HTTP methods. Defaults to all methods. |
+| `conditions`     | `ConditionalResponse[]` | _Optional_. Defines conditions for returning different responses based on headers or query parameters.                                              |
+| `cache`          | `boolean`               | _Optional_. Enables caching of responses for the endpoint. Defaults to `false`.                                                                     |
+| `responseFormat` | `(data: any) => any`    | _Optional_. A function to transform the response data before sending it.                                                                            |
 
 ### Example
 
@@ -143,6 +147,62 @@ vitePluginFakery({
           return body.split(' ').slice(0, 15).join(' ') + '…'
         },
       },
+    },
+    {
+      url: '/api/conditional',
+      conditions: [
+        {
+          when: { headers: { 'x-custom-header': 'value' } },
+          status: 200,
+          staticResponse: { message: 'Header matched!' },
+        },
+        {
+          when: { query: { key: 'value' } },
+          status: 200,
+          staticResponse: { message: 'Query matched!' },
+        },
+      ],
+    },
+    {
+      url: '/api/cached',
+      responseProps: {
+        name: 'person.fullName',
+        email: 'internet.email',
+      },
+      cache: true, // Enable caching
+    },
+    {
+      url: '/api/formatted',
+      responseProps: {
+        name: 'person.fullName',
+        email: 'internet.email',
+      },
+      responseFormat: (data) => ({
+        customWrapper: {
+          data,
+          timestamp: new Date().toISOString(),
+        },
+      }),
+    },
+    {
+      url: '/api/example',
+      responseProps: {
+        name: 'person.fullName',
+        email: 'internet.email',
+      },
+      cache: true,
+      conditions: [
+        {
+          when: { query: { key: 'value' } },
+          staticResponse: { message: 'Condition met!' },
+        },
+      ],
+      responseFormat: (data) => ({
+        customWrapper: {
+          data,
+          timestamp: new Date().toISOString(),
+        },
+      }),
     },
     // … more endpoints
   ],

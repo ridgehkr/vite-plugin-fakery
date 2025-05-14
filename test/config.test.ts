@@ -1,7 +1,7 @@
 import { describe, it, expect, afterAll } from 'vitest'
 import fs from 'fs'
 import path from 'path'
-import { loadConfigFromFile } from '../src/config'
+import { loadConfigFromFile, validateConfig } from '../src/config'
 
 // write a simple mock endpoint config file
 const mockConfig = {
@@ -26,6 +26,13 @@ describe('loadConfigFromFile', () => {
   it('throws on missing file', () => {
     expect(() => loadConfigFromFile('./nonexistent.json')).toThrowError(
       /not found/,
+    )
+  })
+
+  it('throws an error if endpoints are missing in config', () => {
+    const invalidConfig = {}
+    expect(() => validateConfig(invalidConfig)).toThrowError(
+      /"endpoints" are required/,
     )
   })
 })

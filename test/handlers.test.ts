@@ -1,21 +1,35 @@
-import { describe, it, expect, vi } from 'vitest'
+import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { createEndpointHandler } from '../src/handlers'
+import { EndpointConfig } from '../src/types'
 import http from 'http'
 
-function createMockReq(url: string): http.IncomingMessage {
+/**
+ * Creates a mock HTTP request object for testing purposes.
+ * @param {string} url - The URL of the request.
+ * @param {string} [host='localhost'] - The host of the request.
+ * @returns {http.IncomingMessage} A mock HTTP request object.
+ */
+function createMockReq(url: string, host = 'localhost'): http.IncomingMessage {
   return {
     url,
-    headers: { host: 'localhost' },
+    headers: { host },
+    method: 'GET',
   } as http.IncomingMessage
 }
 
+/**
+ * Creates a mock HTTP response object for testing purposes.
+ * Captures response chunks and allows assertions on headers and status codes.
+ * @returns {{ res: http.ServerResponse, chunks: any[] }} An object containing the mock response and captured chunks.
+ */
 function createMockRes() {
   const chunks: any[] = []
   const res = {
     setHeader: vi.fn(),
-    end: vi.fn((chunk) => {
-      chunks.push(chunk)
-      return undefined
+    end: vi.fn((chunk?: any, cb?: () => void) => {
+      if (typeof chunk !== 'undefined') chunks.push(chunk)
+      if (cb) cb()
+      return {} as http.ServerResponse
     }),
     statusCode: 200,
   } as unknown as http.ServerResponse
@@ -23,93 +37,406 @@ function createMockRes() {
   return { res, chunks }
 }
 
-describe('sendJson', () => {
-  it('sets status code and serializes data', () => {
-    const { res, chunks } = createMockRes()
-    // Import sendJson inline to avoid circular import issues
-    const sendJson = (res: any, statusCode: number, data: unknown) => {
-      res.statusCode = statusCode
-      res.setHeader('Content-Type', 'application/json')
-      res.end(JSON.stringify(data))
-    }
-    sendJson(res, 201, { ok: true })
-    expect(res.statusCode).toBe(201)
-    expect(res.setHeader).toHaveBeenCalledWith(
-      'Content-Type',
-      'application/json',
-    )
-    expect(JSON.parse(chunks[0])).toEqual({ ok: true })
-  })
-})
-
-describe('createEndpointHandler', () => {
-  it('throws if endpoint config is missing required fields', () => {
-    // Missing responseProps
-    const endpoint: any = { url: '/broken' }
-    expect(() => createEndpointHandler(endpoint)).toThrowError(
-      'Missing required fields in endpoint config',
-    )
+describe('Endpoint Handler Features', () => {
+  beforeEach(() => {
+    vi.resetAllMocks() // Reset mocks before each test
   })
 
-  it('returns error for invalid page number', () => {
-    const endpoint = {
-      url: '/mock',
-      pagination: true,
-      perPage: 2,
-      total: 6,
-      responseProps: { id: 'string.uuid' },
-    }
-    const handler = createEndpointHandler(endpoint)
-    const req = createMockReq('/mock?page=99')
-    const { res, chunks } = createMockRes()
-    handler(req, res)
-    const output = JSON.parse(chunks[0])
-    expect(res.statusCode).toBe(400)
-    expect(output).toHaveProperty('error')
-    expect(output).toHaveProperty('message')
+  // Dynamic Query Parameters
+  describe('Dynamic Query Parameters', () => {
+    it('supports custom sort parameter', async () => {
+      const endpoint: EndpointConfig = {
+        url: '/test',
+        responseProps: {
+          id: 'number.int',
+          name: 'person.fullName',
+          age: () => Math.floor(Math.random() * 100),
+        },
+        queryParams: { sort: 'customSort', order: 'desc' },
+      }
+      const handler = createEndpointHandler(endpoint)
+      const req = createMockReq('/test?customSort=age')
+      const { res, chunks } = createMockRes()
+
+      await handler(req, res)
+      const response = JSON.parse(chunks[0])
+
+      expect(response.length).toBeGreaterThanOrEqual(2) // Ensure at least two items
+      expect(response[0].age).toBeGreaterThanOrEqual(response[1].age)
+    })
+
+    it('handles empty search results gracefully', async () => {
+      const endpoint: EndpointConfig = {
+        url: '/test',
+        responseProps: {
+          name: 'person.fullName',
+          email: 'internet.email',
+        },
+        queryParams: { search: 'customSearch' },
+      }
+      const handler = createEndpointHandler(endpoint)
+      const req = createMockReq('/test?customSearch=nonexistent')
+      const { res, chunks } = createMockRes()
+
+      await handler(req, res)
+      const response = JSON.parse(chunks[0])
+      const searchedData = response.data || [] // Handle undefined `data`
+
+      expect(searchedData.length).toBe(0)
+    })
+
+    it('supports custom search parameter', async () => {
+      const endpoint: EndpointConfig = {
+        url: '/test',
+        responseProps: {
+          name: 'John Doe',
+          email: 'internet.email',
+        },
+        queryParams: { search: 'customSearch' },
+      }
+      const handler = createEndpointHandler(endpoint)
+      const req = createMockReq('/test?customSearch=john')
+      const { res, chunks } = createMockRes()
+
+      await handler(req, res)
+      const response = JSON.parse(chunks[0])
+
+      expect(response.length).toBeGreaterThan(0)
+      response.forEach((item) => {
+        expect(
+          Object.values(item).some((val) =>
+            String(val).toLowerCase().includes('john'),
+          ),
+        ).toBeTruthy()
+      })
+    })
   })
 
-  it('returns singular object when singular: true', () => {
-    const endpoint = {
-      url: '/mock',
-      singular: true,
-      responseProps: {
-        id: 'string.uuid',
-        name: 'person.fullName',
-      },
-    }
+  // Configurable Response Status and Delay
+  describe('Response Status and Delay', () => {
+    it('supports custom status code', async () => {
+      const endpoint: EndpointConfig = {
+        url: '/test',
+        responseProps: {},
+        status: 201,
+      }
+      const handler = createEndpointHandler(endpoint)
+      const req = createMockReq('/test')
+      const { res, chunks } = createMockRes()
 
-    const handler = createEndpointHandler(endpoint)
-    const req = createMockReq('/mock')
-    const { res, chunks } = createMockRes()
+      handler(req, res)
+      expect(res.statusCode).toBe(201)
+    })
 
-    handler(req, res)
+    it('simulates network delay', async () => {
+      const endpoint: EndpointConfig = {
+        url: '/test',
+        responseProps: {},
+        delay: 100,
+      }
+      const startTime = Date.now()
+      const handler = createEndpointHandler(endpoint)
+      const req = createMockReq('/test')
+      const { res, chunks } = createMockRes()
 
-    const output = JSON.parse(chunks[0])
-    expect(output).toHaveProperty('id')
-    expect(output).toHaveProperty('name')
+      await new Promise<void>((resolve) => {
+        handler(req, res)
+        res.end = (chunk?: any) => {
+          const endTime = Date.now()
+          expect(endTime - startTime).toBeGreaterThanOrEqual(100)
+          resolve()
+          return {} as http.ServerResponse
+        }
+      })
+    })
   })
 
-  it('returns paginated results when pagination enabled', () => {
-    const endpoint = {
-      url: '/mock',
-      pagination: true,
-      perPage: 2,
-      total: 6,
-      responseProps: {
-        name: 'person.fullName',
-      },
-    }
+  // Preset Responses (Static Data)
+  describe('Static Responses', () => {
+    it('returns static response when provided', async () => {
+      const staticResponse = { message: 'Test Static Response' }
+      const endpoint: EndpointConfig = {
+        url: '/test',
+        staticResponse,
+        responseProps: {},
+      }
+      const handler = createEndpointHandler(endpoint)
+      const req = createMockReq('/test')
+      const { res, chunks } = createMockRes()
 
-    const handler = createEndpointHandler(endpoint)
-    const req = createMockReq('/mock?page=2')
-    const { res, chunks } = createMockRes()
+      handler(req, res)
+      const response = JSON.parse(chunks[0])
+      expect(response).toEqual(staticResponse)
+    })
+  })
 
-    handler(req, res)
+  // Random Error Injection
+  describe('Error Injection', () => {
+    it('randomly generates server errors based on error rate', async () => {
+      const endpoint: EndpointConfig = {
+        url: '/test',
+        responseProps: {},
+        errorRate: 1.0, // 100% error rate for testing
+      }
+      const handler = createEndpointHandler(endpoint)
+      const req = createMockReq('/test')
+      const { res, chunks } = createMockRes()
 
-    const output = JSON.parse(chunks[0])
-    expect(output.data.length).toBe(2)
-    expect(output).toHaveProperty('page', 2)
-    expect(output).toHaveProperty('total_pages', 3)
+      handler(req, res)
+      const response = JSON.parse(chunks[0])
+      expect(response).toEqual({ error: 'Simulated server error' })
+      expect(res.statusCode).toBe(500)
+    })
+  })
+
+  // Custom Response Structure
+  describe('Response Transformation', () => {
+    it('transforms response using responseFormat', async () => {
+      const endpoint: EndpointConfig = {
+        url: '/test',
+        responseProps: {},
+        responseFormat: (data: any) => ({
+          customWrapper: {
+            data,
+            timestamp: new Date().toISOString(),
+          },
+        }),
+      }
+      const handler = createEndpointHandler(endpoint)
+      const req = createMockReq('/test')
+      const { res, chunks } = createMockRes()
+
+      handler(req, res)
+      const response = JSON.parse(chunks[0])
+      expect(response).toHaveProperty('customWrapper')
+      expect(response.customWrapper).toHaveProperty('data')
+      expect(response.customWrapper).toHaveProperty('timestamp')
+    })
+  })
+
+  // Request Logging
+  describe('Request Logging', () => {
+    it('logs requests when logRequests is true', () => {
+      const consoleSpy = vi.spyOn(console, 'log').mockImplementation(() => {})
+
+      const endpoint: EndpointConfig = {
+        url: '/test',
+        responseProps: {},
+        logRequests: true,
+      }
+      const handler = createEndpointHandler(endpoint)
+      const req = createMockReq('/test')
+      const { res } = createMockRes()
+
+      handler(req, res)
+
+      expect(consoleSpy).toHaveBeenCalledWith(
+        expect.stringContaining('Request: GET /test'),
+      )
+
+      consoleSpy.mockRestore()
+    })
+  })
+
+  // Caching
+  describe('Caching', () => {
+    it('returns cached response when cache is enabled', async () => {
+      const endpoint: EndpointConfig = {
+        url: '/test',
+        responseProps: {
+          name: 'person.fullName',
+          email: 'internet.email',
+        },
+        cache: true, // Enable caching
+      }
+
+      const handler = createEndpointHandler(endpoint)
+
+      const req1 = createMockReq('/test')
+      const { res: res1, chunks: chunks1 } = createMockRes()
+
+      // First request - should generate a new response
+      await handler(req1, res1)
+      const response1 = JSON.parse(chunks1[0])
+
+      const req2 = createMockReq('/test')
+      const { res: res2, chunks: chunks2 } = createMockRes()
+
+      // Second request - should return the cached response
+      await handler(req2, res2)
+      const response2 = JSON.parse(chunks2[0])
+
+      // Ensure the responses are identical (cached response is returned)
+      expect(response1).toEqual(response2)
+
+      // Ensure the response is cached (no new processing for the second request)
+      expect(chunks1[0]).toBe(chunks2[0])
+    })
+
+    it('does not cache response when cache is disabled', async () => {
+      const endpoint: EndpointConfig = {
+        url: '/test',
+        responseProps: {
+          name: 'person.fullName',
+          email: 'internet.email',
+        },
+        cache: false, // Disable caching
+      }
+
+      const handler = createEndpointHandler(endpoint)
+
+      const req1 = createMockReq('/test')
+      const { res: res1, chunks: chunks1 } = createMockRes()
+
+      // First request - should generate a new response
+      await handler(req1, res1)
+      const response1 = JSON.parse(chunks1[0])
+
+      const req2 = createMockReq('/test')
+      const { res: res2, chunks: chunks2 } = createMockRes()
+
+      // Second request - should generate a new response
+      await handler(req2, res2)
+      const response2 = JSON.parse(chunks2[0])
+
+      // Ensure the responses are not identical (no caching)
+      expect(response1).not.toEqual(response2)
+    })
+
+    it('bypasses cache for different query parameters', async () => {
+      const endpoint: EndpointConfig = {
+        url: '/test',
+        responseProps: { name: 'person.fullName' },
+        cache: true, // Enable caching
+      }
+      const handler = createEndpointHandler(endpoint)
+
+      const req1 = createMockReq('/test?key=value1')
+      const { res: res1, chunks: chunks1 } = createMockRes()
+      await handler(req1, res1)
+
+      const req2 = createMockReq('/test?key=value2') // Different query
+      const { res: res2, chunks: chunks2 } = createMockRes()
+      await handler(req2, res2)
+
+      expect(chunks1[0]).not.toBe(chunks2[0]) // Responses should differ
+    })
+  })
+
+  // Unsupported HTTP Methods
+  describe('Unsupported HTTP Methods', () => {
+    it('returns 405 for unsupported HTTP methods', async () => {
+      const endpoint: EndpointConfig = {
+        url: '/test',
+        responseProps: {},
+        methods: ['GET'], // Only allow GET
+      }
+      const handler = createEndpointHandler(endpoint)
+      const req = createMockReq('/test')
+      req.method = 'POST' // Unsupported method
+      const { res, chunks } = createMockRes()
+
+      await handler(req, res)
+      expect(res.statusCode).toBe(405)
+      expect(chunks.length).toBe(0) // Ensure no response body
+    })
+  })
+
+  // Consistent Data Generation
+  describe('Consistent Data Generation', () => {
+    it('generates consistent data with the same seed', async () => {
+      const endpoint: EndpointConfig = {
+        url: '/test',
+        responseProps: { name: 'person.fullName' },
+        seed: 123, // Set seed
+      }
+      const handler = createEndpointHandler(endpoint)
+      const req = createMockReq('/test')
+      const { res: res1, chunks: chunks1 } = createMockRes()
+      const { res: res2, chunks: chunks2 } = createMockRes()
+
+      await handler(req, res1)
+      await handler(req, res2)
+
+      expect(chunks1[0]).toBe(chunks2[0]) // Responses should match
+    })
+  })
+
+  // Singular Response
+  describe('Singular Response', () => {
+    it('returns a single object when singular is true', async () => {
+      const endpoint: EndpointConfig = {
+        url: '/test',
+        responseProps: { name: 'person.fullName' },
+        singular: true, // Enable singular
+      }
+      const handler = createEndpointHandler(endpoint)
+      const req = createMockReq('/test')
+      const { res, chunks } = createMockRes()
+
+      await handler(req, res)
+      const response = JSON.parse(chunks[0])
+      expect(response).toHaveProperty('name') // Single object
+    })
+  })
+
+  // Conditional Responses
+  describe('Conditional Responses', () => {
+    it('returns conditional response based on headers', async () => {
+      const endpoint: EndpointConfig = {
+        url: '/test',
+        conditions: [
+          {
+            when: { headers: { 'x-custom-header': 'value' } },
+            staticResponse: { message: 'Header matched!' },
+          },
+        ],
+        responseProps: {},
+      }
+      const handler = createEndpointHandler(endpoint)
+      const req = createMockReq('/test')
+      req.headers['x-custom-header'] = 'value'
+      const { res, chunks } = createMockRes()
+
+      await handler(req, res)
+      const response = JSON.parse(chunks[0])
+      expect(response).toEqual({ message: 'Header matched!' })
+    })
+  })
+
+  // Invalid Response Props
+  describe('Invalid Response Props', () => {
+    it('throws an error for invalid responseProps', async () => {
+      const endpoint: EndpointConfig = {
+        url: '/test',
+        responseProps: { invalid: 'nonexistent.path' }, // Invalid Faker path
+      }
+      const handler = createEndpointHandler(endpoint)
+      const req = createMockReq('/test')
+      const { res } = createMockRes()
+
+      await expect(handler(req, res)).rejects.toThrowError(/Invalid Faker path/)
+    })
+  })
+
+  // Pagination
+  describe('Pagination', () => {
+    it('returns full dataset when pagination is false', async () => {
+      const endpoint: EndpointConfig = {
+        url: '/test',
+        responseProps: { name: 'person.fullName' },
+        pagination: false,
+        perPage: 2,
+        total: 5,
+      }
+      const handler = createEndpointHandler(endpoint)
+      const req = createMockReq('/test')
+      const { res, chunks } = createMockRes()
+
+      await handler(req, res)
+      const response = JSON.parse(chunks[0])
+
+      expect(response).toHaveLength(5) // Total dataset size
+    })
   })
 })

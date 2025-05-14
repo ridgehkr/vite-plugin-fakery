@@ -1,4 +1,3 @@
-import pluginQuery from '@tanstack/eslint-plugin-query'
 import pluginTs from '@typescript-eslint/eslint-plugin'
 import parserTs from '@typescript-eslint/parser'
 import prettierPlugin from 'eslint-plugin-prettier'
@@ -15,7 +14,6 @@ export default defineConfig([
     },
     plugins: {
       '@typescript-eslint': pluginTs,
-      '@tanstack/query': pluginQuery,
       prettier: prettierPlugin,
     },
     rules: {

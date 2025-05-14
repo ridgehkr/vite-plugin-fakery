@@ -6,6 +6,19 @@ export type FakerDefinition =
   | FakerDefinition[]
   | { [key: string]: FakerDefinition }
 
+export interface ConditionalResponse {
+  when: { headers?: Record<string, string>; query?: Record<string, string> }
+  status?: number
+  responseProps?: FakerDefinition
+  staticResponse?: Record<string, any>
+}
+
+export interface ResponseTransformation {
+  (data: any): any
+}
+
+export type SortOrder = 'asc' | 'desc'
+
 export interface EndpointConfig {
   url: string
   seed?: number
@@ -14,6 +27,23 @@ export interface EndpointConfig {
   perPage?: number
   total?: number
   responseProps: FakerDefinition
+  status?: number
+  delay?: number
+  staticResponse?: Record<string, any>
+  errorRate?: number
+  responseFormat?: (data: any) => any
+  conditions?: ConditionalResponse[]
+  cache?: boolean
+  methods?: ('GET' | 'POST' | 'PUT' | 'DELETE')[]
+  logRequests?: boolean
+  queryParams?: {
+    search?: string
+    sort?: string
+    order?: SortOrder
+    filter?: string
+    per_page?: string // Allow override for perPage
+    total?: string // Allow override for total
+  }
 }
 
 export interface FakeryPluginOptions {
