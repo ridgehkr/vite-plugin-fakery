@@ -1,8 +1,6 @@
 # vite-plugin-fakery
 
-Define mock API endpoints in your [Vite](https://vite.dev/) dev server that return structured, randomized JSON data. Useful for building and testing UIs without relying on a real backend.
-
-Data is generated using [Faker.js](https://fakerjs.dev) and can be nested, paginated, and optionally seeded for repeatability.
+Define mock API endpoints in your [Vite](https://vite.dev/) dev server that return structured, auto-generated JSON data from [Faker](https://fakerjs.dev). Useful for building and testing UIs without relying on a real backend or wracking your brain trying to make up example content.
 
 This plugin is compatible with Vite 4.x+.
 
@@ -32,7 +30,7 @@ _Note:_ `@faker-js/faker` is a peer dependency. It must be installed alongside t
 
 ### Add the plugin to your Vite config and define your endpoints
 
-Import the plugin and add it to your Vite `plugins` config. Each object you add to the `endpoints` array defines a separate endpoint. The following example creates one endpoint at `/api/users` that returns a paginated array of users (`first_name` and `last_name`). An `id` will also automatically be included.
+Import the plugin and add it to your Vite `plugins` config. Each object you add to the `endpoints` array defines a separate endpoint. The following example creates one endpoint at `/api/users` that returns a paginated array of users (`first_name` and `last_name`). An `id` will also by automatically generated.
 
 ```ts
 import { defineConfig } from 'vite'
@@ -57,6 +55,7 @@ export default defineConfig({
 ```
 
 ### See the Results
+
 Open `http://localhost:<vite-port>/api/users` in your browser to view the results. The output should look something like this:
 
 ```json
@@ -84,19 +83,19 @@ Open `http://localhost:<vite-port>/api/users` in your browser to view the result
 
 Each endpoint can be individually configured with the following:
 
-| Option           | Type                    | Description                                                                                                                                         |
-| ---------------- | ----------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------- | ----- | ------------ | ------------------------------------------------------------------------------------- |
-| `url`            | `string`                | API path (e.g. `/api/users`)                                                                                                                        |
-| `total`          | `number`                | Total number of items to return. Defaults to `100`. Can be overridden via `?total=<value>` in the URL.                                              |
-| `perPage`        | `number`                | Number of items per page to return. Defaults to `10`. Can be overridden via `?per_page=<value>` in the URL.                                         |
-| `pagination`     | `boolean`               | Whether to split results into pages                                                                                                                 |
-| `seed`           | `number`                | _Optional_. Seed to make output deterministic                                                                                                       |
-| `singular`       | `boolean`               | _Optional_. Whether the endpoint returns an array of object as defined by `responseProps` (`false`, default) or a single, unwrapped object (`true`) |
-| `responseProps`  | `FakerValue`            | Structure of Faker.js values (string paths, functions, nested)                                                                                      |
-| `methods`        | `('GET'                 | 'POST'                                                                                                                                              | 'PUT' | 'DELETE')[]` | _Optional_. Restricts the endpoint to specific HTTP methods. Defaults to all methods. |
-| `conditions`     | `ConditionalResponse[]` | _Optional_. Defines conditions for returning different responses based on headers or query parameters.                                              |
-| `cache`          | `boolean`               | _Optional_. Enables caching of responses for the endpoint. Defaults to `false`.                                                                     |
-| `responseFormat` | `(data: any) => any`    | _Optional_. A function to transform the response data before sending it.                                                                            |
+| Option           | Type                                               | Required | Description                                                                                                                                                                                     |
+| ---------------- | -------------------------------------------------- | -------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `url`            | `string`                                           | Yes      | API path (e.g. `/api/users`)                                                                                                                                                                    |
+| `total`          | `number`                                           | No       | Total number of items to return. Defaults to `100`. Can be overridden via `?total=<value>` in the URL.                                                                                          |
+| `perPage`        | `number`                                           | No       | Number of items per page to return. Defaults to `10`. Can be overridden via `?per_page=<value>` in the URL.                                                                                     |
+| `pagination`     | `boolean`                                          | No       | Whether to split results into pages                                                                                                                                                             |
+| `seed`           | `number`                                           | No       | Seed to make output deterministic. See [Faker seed documentation](https://fakerjs.dev/api/faker#seed) for details.                                                                              |
+| `singular`       | `boolean`                                          | No       | Whether the endpoint returns an array of object as defined by `responseProps` (`false`, default) or a single, unwrapped object (`true`). [Read more on singular endpoints](#singular-endpoint). |
+| `responseProps`  | `FakerValue`                                       | No       | Structure of Faker.js values (string paths, functions, nested). [Read more about response props](#understanding-responseprops).                                                                 |
+| `methods`        | array of `'GET'`, `'POST'`, `'PUT'`, or `'DELETE'` | No       | Restricts the endpoint to specific HTTP methods. Defaults to all methods.                                                                                                                       |
+| `conditions`     | `ConditionalResponse[]`                            | No       | Defines conditions for returning different responses based on headers or query parameters.                                                                                                      |
+| `cache`          | `boolean`                                          | No       | Enables caching of responses for the endpoint. Defaults to `false`.                                                                                                                             |
+| `responseFormat` | `(data: any) => any`                               | No       | A function to transform the response data before sending it.                                                                                                                                    |
 
 ### Example
 
@@ -195,58 +194,9 @@ vitePluginFakery({
 }),
 ```
 
-You can also override the default `total` and `perPage` values by passing them as query parameters in the URL. For example:
-
-```http
-GET /api/posts?per_page=5&total=50&page=2
-```
-
-The above request will return the second page of results, with 5 items per page and a total of 50 items.
-
-#### Response, with Overridden URL Parameters
-
-```json
-{
-  "total": 50,
-  "per_page": 5,
-  "page": 2,
-  "total_pages": 10,
-  "data": [
-    {
-      "id": 6,
-      "title": "Quod crustulum correptius adeptio dedecor astrum.",
-      "date": "2024-11-15T08:06:05.929Z",
-      "body": "Denego ambulo vorago verbera. Non abundans velociter verus dapifer. Aeternus consequuntur caelestis quod subiungo contabesco desidero benevolentia desparatus.",
-      "userId": 2011480696291328,
-      "author": {
-        "first_name": "Nayeli",
-        "last_name": "Terry",
-        "email": "Dallas93@gmail.com",
-        "avatar": "https://avatars.githubusercontent.com/u/37640416"
-      },
-      "excerpt": "Clibanus copiose corrigo. Tres cultura venia adduco curso assentator abbas. Adhuc termes ara curso patrocinor…"
-    },
-    {
-      "id": 7,
-      "title": "Aliquid asperiores voluptas.",
-      "date": "2024-11-16T08:06:05.929Z",
-      "body": "Lorem ipsum dolor sit amet, consectetur adipiscing elit.",
-      "userId": 2011480696291329,
-      "author": {
-        "first_name": "John",
-        "last_name": "Doe",
-        "email": "john.doe@example.com",
-        "avatar": "https://avatars.githubusercontent.com/u/37640417"
-      },
-      "excerpt": "Lorem ipsum dolor sit amet, consectetur adipiscing elit…"
-    }
-  ]
-}
-```
-
 #### Singular Endpoint
 
-You can configure an endpoint to return a single object instead of an array by using the `singular` option. This is useful for endpoints that represent a single resource, such as a user profile or a specific product.
+You can configure an endpoint to return a single object instead of an array of objects (default) by using the `singular` option. This is useful for endpoints that represent a single resource, such as a user profile or a specific product. Note that `perPage` and `total` options are not applicable for `singular` endpoints.
 
 ```ts
 import { defineConfig } from 'vite'
@@ -268,8 +218,6 @@ vitePluginFakery({
 }),
 ```
 
-**Note:** The `perPage` and `total` options are not applicable for `singular` endpoints.
-
 Open `http://localhost:<vite-port>/api/user` in your browser to view the result. The output should look something like this:
 
 ```json
@@ -287,14 +235,14 @@ This endpoint does not include pagination or a `data` array, as it is designed t
 
 ### Understanding `responseProps`
 
-To specify what data will be included in your API response, you can use any of the method paths from the [Faker.js API](https://fakerjs.dev/api), for example:
+To specify what data will be included in your API response, you can use any of the method paths from the [Faker API](https://fakerjs.dev/api), for example:
 
 - `'internet.email'`
 - `'person.firstName'`
 - `'image.avatar'`
 - `'commerce.price'`
 
-You can also define nested structures:
+You can also define nested structures as deep as you want:
 
 ```ts
 responseProps: {
@@ -306,20 +254,24 @@ responseProps: {
   location: {
     street: 'location.streetAddress',
     city: 'location.city',
+    meta: {
+      gis: {
+        id: 'string.uuid',
+        county: 'location.county',
+      }
+    }
   },
 }
 ```
 
-Or use a function:
+Or use a function to create a customized property, optionally including Faker content:
 
 ```ts
 responseProps: {
   // The "faker" param provides complete access to the Faker-JS API
-  custom: (faker) => `${faker.word.adjective()} ${faker.animal.dog()}`
+  custom: (faker) => `My dog: ${faker.word.adjective()} ${faker.animal.dog()}`
 }
 ```
-
-`responseProps` is resolved recursively, allowing you to use deeply nested structures or custom functions for dynamic values.
 
 ---
 
@@ -364,25 +316,24 @@ Contributions are welcome! To get started, please follow these guidelines:
 
 ### Reporting Issues
 
-If you encounter a bug or have a feature request, please open an issue in the [Issues](https://github.com/ridgehkr/vite-plugin-fakery/issues) section. Provide as much detail as possible, including steps to reproduce the issue or a clear description of the feature you'd like to see.
+If you encounter a bug or have a feature request, please [open an issue](https://github.com/ridgehkr/vite-plugin-fakery/issues). Provide as much detail as possible, including steps to reproduce the issue or a clear description of the feature you'd like to see.
 
 ### Submitting Pull Requests
 
 1. **Fork the Repository**: Create a fork of the repository to work on your changes.
 2. **Create a Branch**: Use a descriptive branch name (e.g., `fix-bug-123` or `add-new-feature`).
 3. **Follow Coding Standards**: Ensure your changes adhere to the [Coding Standards](CODING_STANDARDS.md).
-4. **Make Changes**: Implement your changes, ensuring they align with the project's coding standards.
-5. **Write Tests**: Add or update tests (`/test`) to cover your changes, if applicable.
-6. **Run Tests**: Ensure all tests pass locally before submitting your pull request.
-7. **Submit a Pull Request**: Open a pull request in the [Pull Requests](https://github.com/ridgehkr/vite-plugin-fakery/pulls) section. Provide a clear description of your changes and reference any related issues.
+4. **Write Tests**: Add or update the unit tests (`/test`) to cover your changes, if applicable.
+5. **Run Tests**: Ensure all tests (new and existing) pass locally before submitting your pull request.
+6. **Submit a Pull Request**: Open a [pull request](https://github.com/ridgehkr/vite-plugin-fakery/pulls), providing a clear description of your changes and referencing any related issues.
 
 ## 🔗 Related
 
-- [Faker.js API Docs](https://fakerjs.dev/api)
+- [Faker API Docs](https://fakerjs.dev/api)
 - [Vite config](https://vite.dev/config/)
 
 ---
 
 ## 🪪 License
 
-MIT © Caleb Pierce
+© [Caleb Pierce](https://calebpierce.dev). MIT License applies.
