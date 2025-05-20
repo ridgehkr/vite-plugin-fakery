@@ -51,7 +51,3 @@ export function resolveFakerValue(definition: FakerDefinition): any {
   // Implementation here...
 }
 ```
-
----
-
-By following these standards, you help ensure that the codebase remains clean, consistent, and easy to maintain. Thank you for contributing!
