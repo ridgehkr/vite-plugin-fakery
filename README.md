@@ -19,7 +19,11 @@ This plugin is compatible with Vite 4.x+.
 ## 📦 Installation
 
 ```bash
-npm install vite-plugin-fakery @faker-js/faker --save-dev
+# with pnpm
+pnpm i -D vite-plugin-fakery @faker-js/faker
+
+# OR
+npm i -D vite-plugin-fakery @faker-js/faker
 ```
 
 _Note:_ `@faker-js/faker` is a peer dependency. It must be installed alongside this plugin.
