@@ -147,7 +147,7 @@ export function createEndpointHandler(endpoint: EndpointConfig) {
       : 'asc'
     const filterParam = endpoint.queryParams?.filter || 'filter'
 
-    const page = parseInt(url.searchParams.get('page') || '1', 10)
+    // Determine perPage and total
     const perPage = parseInt(
       url.searchParams.get(endpoint.queryParams?.per_page || 'per_page') ||
         `${endpoint.perPage || 10}`,
@@ -158,8 +158,22 @@ export function createEndpointHandler(endpoint: EndpointConfig) {
         `${endpoint.total || 100}`,
       10,
     )
-    const totalPages = Math.ceil(total / perPage)
-    const startId = (page - 1) * perPage + 1
+
+    // Calculate total pages
+    const totalPages = Math.max(1, Math.ceil(total / perPage))
+
+    // Determine requested page (default 1)
+    let page = parseInt(url.searchParams.get('page') || '1', 10)
+    if (isNaN(page) || page < 1) page = 1
+
+    // Clamp page to totalPages if pagination is enabled
+    if (endpoint.pagination && page > totalPages) page = totalPages
+
+    // Calculate start and end IDs for the current page
+    const startId = endpoint.pagination ? (page - 1) * perPage + 1 : 1
+    const endId = endpoint.pagination
+      ? Math.min(startId + perPage - 1, total)
+      : total
 
     if (endpoint.logRequests) {
       console.log(`Request: ${req.method} ${req.url}`)
@@ -207,7 +221,7 @@ export function createEndpointHandler(endpoint: EndpointConfig) {
 
     // Generate data with resolved properties
     const data = Array.from({
-      length: !endpoint.pagination ? total : perPage,
+      length: endpoint.pagination ? Math.max(0, endId - startId + 1) : total,
     }).map((_, i) => {
       const resolvedProps = Object.fromEntries(
         Object.entries(endpoint.responseProps || {}).map(([key, value]) => {
@@ -228,7 +242,7 @@ export function createEndpointHandler(endpoint: EndpointConfig) {
         }),
       )
       return {
-        id: startId + i,
+        id: endpoint.pagination ? startId + i : i + 1,
         ...resolvedProps,
       }
     })

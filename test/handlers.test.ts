@@ -438,5 +438,24 @@ describe('Endpoint Handler Features', () => {
 
       expect(response).toHaveLength(5) // Total dataset size
     })
+    it('returns the last page when page exceeds total pages', async () => {
+      const endpoint: EndpointConfig = {
+        url: '/test',
+        responseProps: { id: 'string.uuid', name: 'person.fullName' },
+        pagination: true,
+        perPage: 2,
+        total: 5,
+      }
+      const handler = createEndpointHandler(endpoint)
+      const req = createMockReq('/test?page=10') // Requesting a page that exceeds total pages
+      const { res, chunks } = createMockRes()
+
+      await handler(req, res)
+      const response = JSON.parse(chunks[0])
+
+      expect(response.page).toBe(3) // Requested page
+      console.log(response.data)
+      expect(response.data).toHaveLength(1) // Last page data size
+    })
   })
 })
