@@ -237,7 +237,7 @@ export function createEndpointHandler(endpoint: EndpointConfig) {
           if (typeof value === 'number' || typeof value === 'boolean') {
             return [key, value]
           }
-          // Resolve other types using resolveFakerValue
+          // Faker values
           return [key, resolveFakerValue(value)]
         }),
       )

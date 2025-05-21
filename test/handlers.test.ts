@@ -454,8 +454,30 @@ describe('Endpoint Handler Features', () => {
       const response = JSON.parse(chunks[0])
 
       expect(response.page).toBe(3) // Requested page
-      console.log(response.data)
       expect(response.data).toHaveLength(1) // Last page data size
+    })
+  })
+
+  // Response Props Double-period Escaping
+  describe('Response Props Escaping', () => {
+    it('correctly escapes period characters in static string values', async () => {
+      const endpoint: EndpointConfig = {
+        url: '/test',
+        responseProps: {
+          staticGreeting: 'Hi.. How are you?',
+          fakerData: 'person.firstName',
+        },
+        singular: true,
+      }
+      const handler = createEndpointHandler(endpoint)
+      const req = createMockReq('/test')
+      const { res, chunks } = createMockRes()
+
+      await handler(req, res)
+      const response = JSON.parse(chunks[0])
+
+      expect(response.staticGreeting).toBe('Hi. How are you?')
+      expect(typeof response.fakerData).toBe('string')
     })
   })
 })

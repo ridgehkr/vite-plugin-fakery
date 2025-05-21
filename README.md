@@ -277,6 +277,16 @@ responseProps: {
 }
 ```
 
+Static values (strings, numbers, booleans) are also accepted. _Important: If using a static string value that has a period, it must be escaped with a second period (".."), or else it will be parsed as Faker content._
+
+Example:
+
+```ts
+responseProps: {
+  myStaticValue: 'Hi.. My name is George!', // 'Hi. My name is George!'
+}
+```
+
 ---
 
 ### ⚙️ External JSON Config
