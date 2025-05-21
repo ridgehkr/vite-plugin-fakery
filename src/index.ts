@@ -39,4 +39,6 @@ const vitePluginFakery = (
   }
 }
 
+export type { FakeryPluginOptions }
+
 export default vitePluginFakery

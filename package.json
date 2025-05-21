@@ -21,7 +21,7 @@
     "test:run": "vitest run",
     "test:coverage": "vitest run --coverage",
     "test:ui": "vitest --ui",
-    "lint": "eslint --ext .ts,.d.ts src --config ./eslint.config.js",
+    "lint": "eslint 'src/**/*.{js,ts}'",
     "prepare": "husky"
   },
   "keywords": [
