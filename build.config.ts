@@ -5,11 +5,9 @@ export default defineBuildConfig({
   externals: ['vite'],
   clean: true,
   declaration: true,
+  outDir: 'dist',
   rollup: {
-    emitCJS: true,
+    emitCJS: false,
     inlineDependencies: true,
-  },
-  replace: {
-    'globalThis.__IS_BUILD__': 'true',
   },
 })

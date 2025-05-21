@@ -10,9 +10,9 @@ import { createEndpointHandler } from './handlers.js'
  * @returns A configured Vite plugin
  * @throws If the configuration is invalid or missing required fields
  */
-export default function vitePluginFakery(
+const vitePluginFakery = (
   optionsOrPath: string | FakeryPluginOptions,
-): Plugin {
+): Plugin => {
   const options: FakeryPluginOptions =
     typeof optionsOrPath === 'string'
       ? loadConfigFromFile(optionsOrPath)
@@ -38,3 +38,5 @@ export default function vitePluginFakery(
     },
   }
 }
+
+export default vitePluginFakery

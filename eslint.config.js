@@ -1,15 +1,21 @@
 import pluginTs from '@typescript-eslint/eslint-plugin'
 import parserTs from '@typescript-eslint/parser'
 import prettierPlugin from 'eslint-plugin-prettier'
+import path from 'node:path'
+import { fileURLToPath } from 'url'
 import { defineConfig } from 'eslint/config'
+
+const __dirname = path.dirname(fileURLToPath(import.meta.url))
 
 export default defineConfig([
   {
-    files: ['src/**/*.ts'],
+    files: ['src/**/*.ts', 'src/**/*.d.ts'],
     languageOptions: {
       parser: parserTs,
       parserOptions: {
         project: './tsconfig.json',
+        sourceType: 'module',
+        tsconfigRootDir: __dirname,
       },
     },
     plugins: {

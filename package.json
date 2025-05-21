@@ -1,8 +1,7 @@
 {
   "name": "vite-plugin-fakery",
-  "version": "1.0.5",
+  "version": "1.0.6-alpha",
   "description": "Vite plugin to mock frontend APIs with realistic data from Faker",
-  "main": "./dist/index.cjs",
   "module": "./dist/index.mjs",
   "types": "dist/index.d.ts",
   "files": [
@@ -12,7 +11,6 @@
   "exports": {
     ".": {
       "types": "./dist/index.d.ts",
-      "require": "./dist/index.cjs",
       "import": "./dist/index.mjs"
     }
   },
@@ -23,7 +21,7 @@
     "test:run": "vitest run",
     "test:coverage": "vitest run --coverage",
     "test:ui": "vitest --ui",
-    "lint": "eslint 'src/**/*.{js,ts}'",
+    "lint": "eslint --ext .ts,.d.ts src --config ./eslint.config.js",
     "prepare": "husky"
   },
   "keywords": [
