@@ -3,11 +3,45 @@ import { faker } from '@faker-js/faker'
 import type { SortOrder, EndpointConfig } from './types'
 import type { IncomingMessage, ServerResponse } from 'http'
 
+// default total number of items to generate (may or may not be paginated)
+const DEFAULT_TOTAL_ITEMS = 10
+
+// Cache store for endpoint responses
+const cacheStore = new Map<string, any>()
+
+/**
+ * Determines if the provided order is a valid sort order ('asc' or 'desc').
+ * @param order - The order to validate
+ * @returns {boolean} - True if the order is valid, false otherwise
+ */
 function isValidSortOrder(order: unknown): order is SortOrder {
   if (typeof order !== 'string') {
     return false
   }
   return order === 'asc' || order === 'desc'
+}
+
+/**
+ * Resolves a response property value, handling Faker paths, escaped periods, and primitives.
+ * @param {string} key - The property key
+ * @param {any} value - The property value
+ * @returns {[string, any]} A tuple containing the resolved key and value
+ */
+function resolveResponsePropValue(key: string, value: any): [string, any] {
+  // Handle strings with periods as Faker paths
+  if (typeof value === 'string') {
+    if (value.includes('.') && !value.includes('..')) {
+      return [key, resolveFakerValue(value)]
+    }
+    // Handle escaped periods
+    return [key, value.replace(/\.\./g, '.')]
+  }
+  // Handle primitives (number, boolean) as-is
+  if (typeof value === 'number' || typeof value === 'boolean') {
+    return [key, value]
+  }
+  // Faker values (functions, etc.)
+  return [key, resolveFakerValue(value)]
 }
 
 /**
@@ -88,9 +122,6 @@ function searchData(data: any[], searchValue: string) {
   })
 }
 
-// Cache store for endpoint responses
-const cacheStore = new Map<string, any>()
-
 /**
  * Creates a handler function for a mock API endpoint with configurable behavior
  * @param {EndpointConfig} endpoint - Configuration for the endpoint
@@ -122,13 +153,13 @@ export function createEndpointHandler(endpoint: EndpointConfig) {
       return
     }
 
-    // simulate error rate is enabled
+    // simulate error rate if enabled
     if (endpoint.errorRate && Math.random() < endpoint.errorRate) {
       sendJson(res, 500, { error: 'Simulated server error' })
       return
     }
 
-    // Check if caching is enabled and a cached response exists
+    // check if caching is enabled and a cached response exists
     if (endpoint.cache && cacheStore.has(cacheKey)) {
       const cachedResponse = cacheStore.get(cacheKey)
       return sendResponse(
@@ -147,36 +178,44 @@ export function createEndpointHandler(endpoint: EndpointConfig) {
       : 'asc'
     const filterParam = endpoint.queryParams?.filter || 'filter'
 
-    // Determine perPage and total
-    const perPage = parseInt(
+    // Extract query parameters for search and sorting
+    const searchValue =
+      url.searchParams.get(searchParam) || url.searchParams.get('q') || ''
+    const sortField = url.searchParams.get(sortParam) || 'sort'
+
+    // get the filter field and value
+    const filterField = url.searchParams.get(filterParam) ?? ''
+    const filterValue = url.searchParams.get(filterField) ?? ''
+
+    // determine items per page of results
+    const perPage: number | typeof NaN = parseInt(
       url.searchParams.get(endpoint.queryParams?.per_page || 'per_page') ||
-        `${endpoint.perPage || 10}`,
-      10,
-    )
-    const total = parseInt(
-      url.searchParams.get(endpoint.queryParams?.total || 'total') ||
-        `${endpoint.total || 100}`,
+        `${endpoint.perPage}`,
       10,
     )
 
-    // Automatically enable pagination if perPage is set
+    // determine total number of items
+    const total =
+      parseInt(
+        url.searchParams.get(endpoint.queryParams?.total || 'total') ||
+          `${endpoint.total}`,
+        10,
+      ) || DEFAULT_TOTAL_ITEMS
+
+    // automatically enable pagination if perPage is set
     const isPaginationEnabled =
-      endpoint.pagination === true ||
-      (!endpoint.pagination &&
-        typeof Number.isInteger(perPage) === 'number' &&
-        perPage > 0)
+      endpoint.pagination || (Number.isInteger(perPage) && perPage > 0)
 
-    // Calculate total pages
-    const totalPages = Math.max(1, Math.ceil(total / perPage))
+    // total pages of results (defaults to 1)
+    const totalPages = Math.max(1, Math.ceil(total / (perPage || total)))
 
-    // Determine requested page (default 1)
-    let page = parseInt(url.searchParams.get('page') || '1', 10)
-    if (isNaN(page) || page < 1) page = 1
+    // get requested page (defaults to first page)
+    let page = Math.max(parseInt(url.searchParams.get('page') ?? '1', 10) || 1)
 
-    // Clamp page to totalPages if pagination is enabled
-    if (isPaginationEnabled && page > totalPages) page = totalPages
+    // prevent page numbers beyond upper limit
+    page = Math.min(page, totalPages)
 
-    // Calculate start and end IDs for the current page
+    // start and end IDs for the current page
     const startId = isPaginationEnabled ? (page - 1) * perPage + 1 : 1
     const endId = isPaginationEnabled
       ? Math.min(startId + perPage - 1, total)
@@ -186,6 +225,7 @@ export function createEndpointHandler(endpoint: EndpointConfig) {
       console.log(`Request: ${req.method} ${req.url}`)
     }
 
+    // check for endpoint conditions
     const condition = endpoint.conditions?.find((cond) => {
       const headersMatch = cond.when.headers
         ? Object.entries(cond.when.headers).every(
@@ -200,7 +240,6 @@ export function createEndpointHandler(endpoint: EndpointConfig) {
       return headersMatch && queryMatch
     })
 
-    // Set seed for Faker if provided
     if (endpoint.seed) {
       faker.seed(endpoint.seed)
     }
@@ -226,42 +265,20 @@ export function createEndpointHandler(endpoint: EndpointConfig) {
       return
     }
 
-    // Generate data with resolved properties
+    // generate the data
     const data = Array.from({
       length: isPaginationEnabled ? Math.max(0, endId - startId + 1) : total,
     }).map((_, i) => {
       const resolvedProps = Object.fromEntries(
-        Object.entries(endpoint.responseProps || {}).map(([key, value]) => {
-          // Handle strings with periods as Faker paths
-          if (typeof value === 'string') {
-            if (value.includes('.') && !value.includes('..')) {
-              return [key, resolveFakerValue(value)]
-            }
-            // Handle escaped periods
-            return [key, value.replace(/\.\./g, '.')]
-          }
-          // Handle primitives (number, boolean) as-is
-          if (typeof value === 'number' || typeof value === 'boolean') {
-            return [key, value]
-          }
-          // Faker values
-          return [key, resolveFakerValue(value)]
-        }),
+        Object.entries(endpoint.responseProps || {}).map(([key, value]) =>
+          resolveResponsePropValue(key, value),
+        ),
       )
       return {
         id: isPaginationEnabled ? startId + i : i + 1,
         ...resolvedProps,
       }
     })
-
-    // Extract query parameters for search and sorting
-    const searchValue =
-      url.searchParams.get(searchParam) || url.searchParams.get('q') || ''
-    const sortField = url.searchParams.get(sortParam) || 'sort'
-
-    // get the filter field and value
-    const filterField = url.searchParams.get(filterParam) ?? ''
-    const filterValue = url.searchParams.get(filterField) ?? ''
 
     // Apply search, filter, and sort
     let filteredData = data?.length ? data : []
@@ -275,25 +292,26 @@ export function createEndpointHandler(endpoint: EndpointConfig) {
       filteredData = sortData(filteredData, sortField, orderParam)
     }
 
-    // Prepare the result based on singular or paginated response
-    const result = endpoint.singular
-      ? filteredData[0] || {}
-      : isPaginationEnabled
-        ? {
-            data: filteredData,
-            page,
-            per_page: perPage,
-            total,
-            total_pages: totalPages,
-          }
-        : filteredData // Return full dataset if pagination is false
+    // prepare the response
+    let result: any
 
-    // Store the response in the cache if caching is enabled
+    if (endpoint.singular) {
+      result = filteredData[0] || {}
+    } else {
+      result = {
+        data: filteredData,
+        page,
+        per_page: perPage,
+        total,
+        total_pages: totalPages,
+      }
+    }
+
+    // cache the response if enabled
     if (endpoint.cache) {
       cacheStore.set(cacheKey, result)
     }
 
-    // Send the response
     return sendResponse(
       res,
       endpoint.status || 200,
