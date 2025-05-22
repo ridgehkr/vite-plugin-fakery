@@ -301,7 +301,7 @@ export function createEndpointHandler(endpoint: EndpointConfig) {
       result = {
         data: filteredData,
         page,
-        per_page: perPage,
+        per_page: isPaginationEnabled ? perPage : total,
         total,
         total_pages: totalPages,
       }
