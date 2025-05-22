@@ -60,9 +60,9 @@ describe('Endpoint Handler Features', () => {
 
       expect(res.statusCode).toBe(200)
       const response = JSON.parse(chunks.join(''))
-      expect(response).toHaveLength(10) // Should get 10 items for page 2
-      expect(response[0].id).toBe(11) // First item should be id 11 for page 2
-      expect(response[9].id).toBe(20) // Last item should be id 20 for page 2
+      expect(response.data).toHaveLength(10) // Should get 10 items for page 2
+      expect(response.data[0].id).toBe(11) // First item should be id 11 for page 2
+      expect(response.data[9].id).toBe(20) // Last item should be id 20 for page 2
     })
 
     it('works with explicit pagination flag', async () => {
@@ -105,7 +105,7 @@ describe('Endpoint Handler Features', () => {
 
       expect(res.statusCode).toBe(200)
       const response = JSON.parse(chunks.join(''))
-      expect(response).toHaveLength(25) // Should get all 25 items
+      expect(response.data).toHaveLength(25) // Should get all 25 items
     })
 
     it('returns full dataset when pagination is false', async () => {
@@ -122,8 +122,7 @@ describe('Endpoint Handler Features', () => {
 
       await handler(req, res)
       const response = JSON.parse(chunks[0])
-
-      expect(response).toHaveLength(5) // Total dataset size
+      expect(response.data).toHaveLength(5) // Total dataset size
     })
 
     it('returns the last page when page exceeds total pages', async () => {
@@ -151,9 +150,14 @@ describe('Endpoint Handler Features', () => {
     it('supports custom sort parameter', async () => {
       const endpoint: EndpointConfig = {
         url: '/test-custom-sort',
+        total: 10,
         responseProps: {
           id: 'number.int',
           name: 'person.fullName',
+          sub: {
+            id: 'number.int',
+            name: 'person.firstName',
+          },
           age: () => Math.floor(Math.random() * 100),
         },
         queryParams: { sort: 'customSort', order: 'desc' },
@@ -165,8 +169,8 @@ describe('Endpoint Handler Features', () => {
       await handler(req, res)
       const response = JSON.parse(chunks[0])
 
-      expect(response.length).toBeGreaterThanOrEqual(2) // Ensure at least two items
-      expect(response[0].age).toBeGreaterThanOrEqual(response[1].age)
+      expect(response.data.length).toBeGreaterThanOrEqual(2) // Ensure at least two items
+      expect(response.data[0].age).toBeGreaterThanOrEqual(response.data[1].age)
     })
 
     it('handles empty search results gracefully', async () => {
@@ -205,8 +209,8 @@ describe('Endpoint Handler Features', () => {
       await handler(req, res)
       const response = JSON.parse(chunks[0])
 
-      expect(response.length).toBeGreaterThan(0)
-      response.forEach((item) => {
+      expect(response.data.length).toBeGreaterThan(0)
+      response.data.forEach((item) => {
         expect(
           Object.values(item).some((val) =>
             String(val).toLowerCase().includes('john'),

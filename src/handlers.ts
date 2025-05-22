@@ -1,23 +1,18 @@
 import { resolveFakerValue } from './fakerResolver.js'
 import { faker } from '@faker-js/faker'
-import type { SortOrder, EndpointConfig } from './types'
+import type { SortOrder, EndpointConfig, ResponseTransformation } from './types'
 import type { IncomingMessage, ServerResponse } from 'http'
 
 // default total number of items to generate (may or may not be paginated)
 const DEFAULT_TOTAL_ITEMS = 10
 
-// Cache store for endpoint responses
+// In-memory cache store for endpoint responses
 const cacheStore = new Map<string, any>()
 
 /**
  * Determines if the provided order is a valid sort order ('asc' or 'desc').
- * @param order - The order to validate
- * @returns {boolean} - True if the order is valid, false otherwise
  */
 function isValidSortOrder(order: unknown): order is SortOrder {
-  if (typeof order !== 'string') {
-    return false
-  }
   return order === 'asc' || order === 'desc'
 }
 
@@ -33,289 +28,382 @@ function resolveResponsePropValue(key: string, value: any): [string, any] {
     if (value.includes('.') && !value.includes('..')) {
       return [key, resolveFakerValue(value)]
     }
-    // Handle escaped periods
+
     return [key, value.replace(/\.\./g, '.')]
   }
-  // Handle primitives (number, boolean) as-is
+
   if (typeof value === 'number' || typeof value === 'boolean') {
     return [key, value]
   }
-  // Faker values (functions, etc.)
+
   return [key, resolveFakerValue(value)]
 }
 
 /**
- * Sends a JSON response to the client
- * @param {ServerResponse} res - The server response object
- * @param {number} statusCode - HTTP status code to send
- * @param {unknown} data - The data to be sent as JSON
+ * Sends JSON response after optional delay, applying optional transformFn.
  */
-function sendJson(res: ServerResponse, statusCode: number, data: unknown) {
-  res.setHeader('Content-Type', 'application/json')
-  res.statusCode = statusCode
-  res.end(JSON.stringify(data))
-}
-
-/**
- * Sends a response with optional delay, transformation, and caching
- * @param {ServerResponse} res - The server response object
- * @param {number} status - HTTP status code to send
- * @param {any} data - The data to be sent
- * @param {number} [delay] - Optional delay in milliseconds before sending the response
- * @param {(data: any) => any} [transform] - Optional function to transform the data before sending
- */
-async function sendResponse(
+function sendResponse(
   res: ServerResponse,
   status: number,
   data: any,
   delay?: number,
-  transform?: (data: any) => any,
-) {
-  if (delay) {
-    await new Promise((resolve) => setTimeout(resolve, delay))
+  transformFn?: ResponseTransformation,
+): void {
+  const dispatch = () => {
+    res.statusCode = status
+    res.setHeader('Content-Type', 'application/json')
+    const payload = transformFn ? transformFn(data) : data
+    res.end(JSON.stringify(payload))
   }
-  const output = transform ? transform(data) : data
-  sendJson(res, status, output)
+  delay ? setTimeout(dispatch, delay) : dispatch()
 }
 
 /**
- * Sorts an array of objects based on a specified field and order
- * @param {any[]} data - The array of objects to sort
- * @param {string} sortField - The field to sort by
- * @param {SortOrder} order - Sort order, either 'asc' or 'desc'
- * @returns {any[]} The sorted array
+ * Sends JSON error response immediately.
  */
-function sortData(data: any[], sortField: string, order: SortOrder) {
-  return data.sort((a, b) => {
-    const valA = a[sortField]
-    const valB = b[sortField]
-    if (valA === undefined || valB === undefined) return 0
-    if (valA < valB) return order === 'desc' ? 1 : -1
-    if (valA > valB) return order === 'desc' ? -1 : 1
+function sendJson(res: ServerResponse, status: number, body: unknown): void {
+  res.statusCode = status
+  res.setHeader('Content-Type', 'application/json')
+  res.end(JSON.stringify(body))
+}
+
+/**
+ * Searches array of objects for term in any string field.
+ */
+function searchData<T extends Record<string, unknown>>(
+  data: T[],
+  term: string,
+): T[] {
+  const lower = term.toLowerCase()
+  return data.filter((item) =>
+    Object.values(item).some(
+      (v) => typeof v === 'string' && v.toLowerCase().includes(lower),
+    ),
+  )
+}
+
+/**
+ * Filters array of objects by exact match on field.
+ */
+function filterData<T extends Record<string, unknown>>(
+  data: T[],
+  field: string,
+  value: string,
+): T[] {
+  return data.filter((item) => String(item[field]) === value)
+}
+
+/**
+ * Sorts array of objects by field and order.
+ */
+function sortData<T extends Record<string, unknown>>(
+  data: T[],
+  field: string,
+  order: SortOrder = 'asc',
+): T[] {
+  return [...data].sort((a, b) => {
+    const av = a[field]
+    const bv = b[field]
+    if (av == null || bv == null) return 0
+    if (av < bv) return order === 'asc' ? -1 : 1
+    if (av > bv) return order === 'asc' ? 1 : -1
     return 0
   })
 }
 
 /**
- * Filters an array of objects based on a specified field and value
- * @param {any[]} data - The array of objects to filter
- * @param {string} filterField - The field to filter by
- * @param {string} filterValue - The value to filter for
- * @returns {any[]} The filtered array
+ * Parses request URL and constructs cacheKey.
  */
-function filterData(data: any[], filterField: string, filterValue: string) {
-  return data.filter((item) => String(item[filterField]).includes(filterValue))
+function parseRequest(
+  req: IncomingMessage,
+  endpoint: EndpointConfig,
+): { url: URL; cacheKey: string } {
+  const url = new URL(req.url || '', `http://${req.headers.host}`)
+  const qs = url.searchParams.toString()
+  return { url, cacheKey: `${endpoint.url}${qs ? `?${qs}` : ''}` }
 }
 
 /**
- * Searches an array of objects for a value, either across all fields or in a specific field
- * @param {any[]} data - The array of objects to search
- * @param {string} searchValue - The value to search for
- * @returns {any[]} The array of matching objects
+ * Validates HTTP method.
  */
-function searchData(data: any[], searchValue: string) {
-  const lowercaseSearchValue = searchValue.toLowerCase()
-  return data.filter((item) => {
-    return Object.values(item).some((val) =>
-      String(val).toLowerCase().includes(lowercaseSearchValue),
-    )
+function validateMethod(
+  req: IncomingMessage,
+  endpoint: EndpointConfig,
+): boolean {
+  return !endpoint.methods || endpoint.methods.includes(req.method as any)
+}
+
+/**
+ * Simulates random error based on errorRate.
+ */
+function shouldSimulateError(endpoint: EndpointConfig): boolean {
+  return (
+    typeof endpoint.errorRate === 'number' && Math.random() < endpoint.errorRate
+  )
+}
+
+/**
+ * Retrieves cached response if enabled.
+ */
+function getCachedResponse<T>(
+  cacheKey: string,
+  endpoint: EndpointConfig,
+): T | undefined {
+  return endpoint.cache ? (cacheStore.get(cacheKey) as T) : undefined
+}
+
+/**
+ * Extracts and normalizes query params and pagination info.
+ */
+function buildParams(url: URL, endpoint: EndpointConfig) {
+  const qp = endpoint.queryParams ?? {}
+  const searchKey = qp.search ?? 'q'
+  const filterKey = qp.filter ?? 'filter'
+  const sortKey = qp.sort ?? 'sort'
+  const order = isValidSortOrder(qp.order) ? qp.order : 'asc'
+
+  const searchValue = url.searchParams.get(searchKey) ?? ''
+  const filterField = url.searchParams.get(filterKey) ?? ''
+  const filterValue = filterField
+    ? (url.searchParams.get(filterField) ?? '')
+    : ''
+  const sortField = url.searchParams.get(sortKey) ?? sortKey
+
+  const perPageRaw = parseInt(
+    url.searchParams.get(qp.per_page ?? 'per_page') ?? String(endpoint.perPage),
+    10,
+  )
+  const totalRaw =
+    parseInt(
+      url.searchParams.get(qp.total ?? 'total') ?? String(endpoint.total),
+      10,
+    ) || DEFAULT_TOTAL_ITEMS
+
+  const paginationEnabled =
+    endpoint.pagination ||
+    (Number.isInteger(perPageRaw) &&
+      perPageRaw > 0 &&
+      endpoint.pagination !== false)
+  const perPage = paginationEnabled ? perPageRaw : totalRaw
+  const total = totalRaw
+  const totalPages = Math.max(1, Math.ceil(total / perPage))
+  const page = Math.min(
+    Math.max(parseInt(url.searchParams.get('page') ?? '1', 10), 1),
+    totalPages,
+  )
+
+  return {
+    searchValue,
+    filterField,
+    filterValue,
+    sortField,
+    order,
+    page,
+    perPage,
+    total,
+    totalPages,
+  }
+}
+
+/**
+ * Calculates start/end range IDs for pagination.
+ */
+function pageRange(page: number, perPage: number, total: number) {
+  const startId = (page - 1) * perPage + 1
+  return { startId, endId: Math.min(startId + perPage - 1, total) }
+}
+
+/**
+ * Finds matching conditional response based on headers/query.
+ */
+function matchCondition(
+  req: IncomingMessage,
+  url: URL,
+  endpoint: EndpointConfig,
+) {
+  return endpoint.conditions?.find((cond) => {
+    const hdrOk = cond.when.headers
+      ? Object.entries(cond.when.headers).every(
+          ([k, v]) => req.headers[k] === v,
+        )
+      : true
+    const qryOk = cond.when.query
+      ? Object.entries(cond.when.query).every(
+          ([k, v]) => url.searchParams.get(k) === v,
+        )
+      : true
+    return hdrOk && qryOk
   })
 }
 
 /**
- * Creates a handler function for a mock API endpoint with configurable behavior
- * @param {EndpointConfig} endpoint - Configuration for the endpoint
- * @returns {(req: IncomingMessage, res: ServerResponse) => Promise<void>} An async request handler
- * The handler supports:
- * - Logging requests
- * - Simulating error rates
- * - Static responses
- * - Generating fake data
- * - Pagination
- * - Searching
- * - Filtering
- * - Sorting
- * - Caching
- * - Conditional responses
- * - Response transformation
- * - Restricting methods (GET, POST, etc.)
+ * Generates fake data array based on responseProps.
+ */
+/**
+ * Generates fake data array for given ID range, ignoring global pagination flag.
+ * @param endpoint - Endpoint configuration (used for responseProps)
+ * @param range - Object containing startId and endId
+ * @returns Array of data items with IDs from startId to endId inclusive
+ */
+function generateData(
+  endpoint: EndpointConfig,
+  range: { startId: number; endId: number },
+): Record<string, unknown>[] {
+  const count = Math.max(0, range.endId - range.startId + 1)
+  return Array.from({ length: count }).map((_, i) => {
+    const id = range.startId + i
+    const props = Object.fromEntries(
+      Object.entries(endpoint.responseProps).map(([k, v]) =>
+        resolveResponsePropValue(k, v),
+      ),
+    )
+    return { id, ...props }
+  })
+}
+
+/**
+ * Applies search, filter, and sort transforms in sequence.
+ */
+function applyTransforms<T extends Record<string, unknown>>(
+  data: T[],
+  params: ReturnType<typeof buildParams>,
+): T[] {
+  let result = data
+  if (params.searchValue) result = searchData(result, params.searchValue)
+  if (params.filterField)
+    result = filterData(result, params.filterField, params.filterValue)
+  if (params.sortField)
+    result = sortData(result, params.sortField, params.order)
+  return result
+}
+
+/**
+ * Builds final payload: single object or paginated collection.
+ */
+function buildPayload<T extends Record<string, unknown>>(
+  data: T[],
+  params: ReturnType<typeof buildParams>,
+  endpoint: EndpointConfig,
+):
+  | T
+  | {
+      data: T[]
+      page: number
+      per_page: number
+      total: number
+      total_pages: number
+    } {
+  return endpoint.singular
+    ? (data[0] ?? {})
+    : {
+        data,
+        page: params.page,
+        per_page: params.perPage,
+        total: params.total,
+        total_pages: params.totalPages,
+      }
+}
+
+/**
+ * Creates an HTTP handler function for given endpoint configuration.
  */
 export function createEndpointHandler(endpoint: EndpointConfig) {
   return async (req: IncomingMessage, res: ServerResponse) => {
-    const url = new URL(req.url || '', `http://${req.headers.host}`)
-    const queryParams = url.searchParams.toString()
-    const cacheKey = `${endpoint.url}?${queryParams}`
+    // Parse URL and cache key
+    const { url, cacheKey } = parseRequest(req, endpoint)
 
-    // abort for invalid method
-    if (endpoint.methods && !endpoint.methods.includes(req.method as any)) {
-      res.statusCode = 405 // Method Not Allowed
-      res.end()
-      return
+    // Method check
+    if (!validateMethod(req, endpoint)) {
+      res.statusCode = 405
+      return res.end()
     }
 
-    // simulate error rate if enabled
-    if (endpoint.errorRate && Math.random() < endpoint.errorRate) {
-      sendJson(res, 500, { error: 'Simulated server error' })
-      return
+    // Simulate error
+    if (shouldSimulateError(endpoint)) {
+      return sendJson(res, 500, { error: 'Simulated server error' })
     }
 
-    // check if caching is enabled and a cached response exists
-    if (endpoint.cache && cacheStore.has(cacheKey)) {
-      const cachedResponse = cacheStore.get(cacheKey)
+    // Cache lookup
+    const cached = getCachedResponse(cacheKey, endpoint)
+    if (cached !== undefined) {
       return sendResponse(
         res,
-        endpoint.status || 200,
-        cachedResponse,
+        endpoint.status ?? 200,
+        cached,
         endpoint.delay,
         endpoint.responseFormat,
       )
     }
 
-    const searchParam = endpoint.queryParams?.search || 'q'
-    const sortParam = endpoint.queryParams?.sort || 'sort'
-    const orderParam = isValidSortOrder(endpoint.queryParams?.order)
-      ? endpoint.queryParams.order
-      : 'asc'
-    const filterParam = endpoint.queryParams?.filter || 'filter'
+    // Build params
+    const params = buildParams(url, endpoint)
+    if (endpoint.logRequests) console.log(`Request: ${req.method} ${req.url}`)
 
-    // Extract query parameters for search and sorting
-    const searchValue =
-      url.searchParams.get(searchParam) || url.searchParams.get('q') || ''
-    const sortField = url.searchParams.get(sortParam) || 'sort'
+    // Seed faker
+    if (endpoint.seed !== undefined) faker.seed(endpoint.seed)
 
-    // get the filter field and value
-    const filterField = url.searchParams.get(filterParam) ?? ''
-    const filterValue = url.searchParams.get(filterField) ?? ''
-
-    // determine items per page of results
-    const perPage: number | typeof NaN = parseInt(
-      url.searchParams.get(endpoint.queryParams?.per_page || 'per_page') ||
-        `${endpoint.perPage}`,
-      10,
-    )
-
-    // determine total number of items
-    const total =
-      parseInt(
-        url.searchParams.get(endpoint.queryParams?.total || 'total') ||
-          `${endpoint.total}`,
-        10,
-      ) || DEFAULT_TOTAL_ITEMS
-
-    // automatically enable pagination if perPage is set
-    const isPaginationEnabled =
-      endpoint.pagination || (Number.isInteger(perPage) && perPage > 0)
-
-    // total pages of results (defaults to 1)
-    const totalPages = Math.max(1, Math.ceil(total / (perPage || total)))
-
-    // get requested page (defaults to first page)
-    let page = Math.max(parseInt(url.searchParams.get('page') ?? '1', 10) || 1)
-
-    // prevent page numbers beyond upper limit
-    page = Math.min(page, totalPages)
-
-    // start and end IDs for the current page
-    const startId = isPaginationEnabled ? (page - 1) * perPage + 1 : 1
-    const endId = isPaginationEnabled
-      ? Math.min(startId + perPage - 1, total)
-      : total
-
-    if (endpoint.logRequests) {
-      console.log(`Request: ${req.method} ${req.url}`)
-    }
-
-    // check for endpoint conditions
-    const condition = endpoint.conditions?.find((cond) => {
-      const headersMatch = cond.when.headers
-        ? Object.entries(cond.when.headers).every(
-            ([key, value]) => req.headers[key] === value,
-          )
-        : true
-      const queryMatch = cond.when.query
-        ? Object.entries(cond.when.query).every(
-            ([key, value]) => url.searchParams.get(key) === value,
-          )
-        : true
-      return headersMatch && queryMatch
-    })
-
-    if (endpoint.seed) {
-      faker.seed(endpoint.seed)
-    }
-
+    // Conditional static response
+    const condition = matchCondition(req, url, endpoint)
     if (condition) {
-      sendResponse(
+      return sendResponse(
         res,
-        condition.status || 200,
-        condition.staticResponse || {},
+        condition.status ?? 200,
+        condition.staticResponse ?? {},
         endpoint.delay,
+        endpoint.responseFormat,
       )
-      return
     }
 
+    // Global static response
     if (endpoint.staticResponse) {
-      sendResponse(
+      return sendResponse(
         res,
-        endpoint.status || 200,
+        endpoint.status ?? 200,
         endpoint.staticResponse,
         endpoint.delay,
         endpoint.responseFormat,
       )
-      return
     }
 
-    // generate the data
-    const data = Array.from({
-      length: isPaginationEnabled ? Math.max(0, endId - startId + 1) : total,
-    }).map((_, i) => {
-      const resolvedProps = Object.fromEntries(
-        Object.entries(endpoint.responseProps || {}).map(([key, value]) =>
-          resolveResponsePropValue(key, value),
-        ),
-      )
-      return {
-        id: isPaginationEnabled ? startId + i : i + 1,
-        ...resolvedProps,
-      }
-    })
-
-    // Apply search, filter, and sort
-    let filteredData = data?.length ? data : []
-    if (searchValue) {
-      filteredData = searchData(filteredData, searchValue)
-    }
-    if (filterField && filterValue) {
-      filteredData = filterData(filteredData, filterField, filterValue)
-    }
-    if (sortParam) {
-      filteredData = sortData(filteredData, sortField, orderParam)
-    }
-
-    // prepare the response
-    let result: any
-
+    // Handle singular endpoint: ignore pagination settings
     if (endpoint.singular) {
-      result = filteredData[0] || {}
-    } else {
-      result = {
-        data: filteredData,
-        page,
-        per_page: isPaginationEnabled ? perPage : total,
-        total,
-        total_pages: totalPages,
-      }
+      // Generate full dataset ignoring pagination
+      const rawData = generateData(
+        { ...endpoint, pagination: false },
+        { startId: 1, endId: 1 },
+      )
+      // Apply search, filter, sort but ignore page/perPage
+      const finalData = applyTransforms(rawData, params)
+      const result = finalData[0] ?? {}
+      // Cache and respond
+      if (endpoint.cache) cacheStore.set(cacheKey, result)
+      return sendResponse(
+        res,
+        endpoint.status ?? 200,
+        result,
+        endpoint.delay,
+        endpoint.responseFormat,
+      )
     }
 
-    // cache the response if enabled
-    if (endpoint.cache) {
-      cacheStore.set(cacheKey, result)
-    }
+    // Data generation & transform for list endpoints
+    const { startId, endId } = pageRange(
+      params.page,
+      params.perPage,
+      params.total,
+    )
+    const rawData = generateData(endpoint, { startId, endId })
+    const finalData = applyTransforms(rawData, params)
+    const payload = buildPayload(finalData, params, endpoint)
 
+    // Cache store
+    if (endpoint.cache) cacheStore.set(cacheKey, payload)
+
+    // Send result
     return sendResponse(
       res,
-      endpoint.status || 200,
-      result,
+      endpoint.status ?? 200,
+      payload,
       endpoint.delay,
       endpoint.responseFormat,
     )

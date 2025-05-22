@@ -4,8 +4,6 @@ Define mock API endpoints in your [Vite](https://vite.dev/) dev server that retu
 
 This plugin is compatible with Vite 4.x+.
 
----
-
 ## Table of Contents
 
 - [📦 Installation](#-installation)
@@ -14,27 +12,21 @@ This plugin is compatible with Vite 4.x+.
 - [🔗 Related](#-related)
 - [🪪 License](#-license)
 
----
-
 ## 📦 Installation
 
 ```bash
 # with pnpm
-pnpm i -D vite-plugin-fakery @faker-js/faker
+pnpm i -D vite-plugin-fakery
 
 # OR
-npm i -D vite-plugin-fakery @faker-js/faker
+npm i -D vite-plugin-fakery
 ```
-
-_Note:_ `@faker-js/faker` is a peer dependency. It must be installed alongside this plugin.
-
----
 
 ## 🚀 Quick Start
 
-### Add the plugin to your Vite config and define your endpoints
+### Add the plugin and define your endpoints
 
-Import the plugin and add it to your Vite `plugins` config. Each object you add to the `endpoints` array defines a separate endpoint. The following example creates one endpoint at `/api/users` that returns a paginated array of users (`first_name` and `last_name`). An `id` will also by automatically generated.
+Import the plugin and add it to your Vite `plugins` config. Each object you add to the `endpoints` array defines a separate endpoint. The following example creates one endpoint at `/api/users` that returns a paginated array of users (`first_name` and `last_name`). An `id` prop will also be automatically generated.
 
 ```ts
 import { defineConfig } from 'vite'
@@ -62,10 +54,8 @@ export default defineConfig({
 
 Open `http://localhost:<vite-port>/api/users` in your browser to view the results. The output should look something like this:
 
-```json
+```ts
 {
-  "total": 100,
-  "per_page": 10,
   "data": [
     {
       "id": 1,
@@ -76,32 +66,42 @@ Open `http://localhost:<vite-port>/api/users` in your browser to view the result
       "id": 2,
       "first_name": "Wilfredo",
       "last_name": "Thompson"
-    }
-  ]
+    },
+    // 8 more results here…
+  ],
+  "page": 1,
+  "per_page": 10,
+  "total": 10,
+  "total_pages": 1
 }
 ```
-
----
 
 ## ⚙️ Configuration Options
 
 Each endpoint can be individually configured with the following:
 
-| Option           | Type                                               | Required | Description                                                                                                                                                                                     |
-| ---------------- | -------------------------------------------------- | -------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `url`            | `string`                                           | Yes      | API path (e.g. `/api/users`)                                                                                                                                                                    |
-| `total`          | `number`                                           | No       | Total number of items to return. Defaults to `100`. Can be overridden via `?total=<value>` in the URL.                                                                                          |
-| `perPage`        | `number`                                           | No       | Number of items per page to return. Defaults to `10`. Can be overridden via `?per_page=<value>` in the URL.                                                                                     |
-| `pagination`     | `boolean`                                          | No       | Whether to split results into pages                                                                                                                                                             |
-| `seed`           | `number`                                           | No       | Seed to make output deterministic. See [Faker seed documentation](https://fakerjs.dev/api/faker#seed) for details.                                                                              |
-| `singular`       | `boolean`                                          | No       | Whether the endpoint returns an array of object as defined by `responseProps` (`false`, default) or a single, unwrapped object (`true`). [Read more on singular endpoints](#singular-endpoint). |
-| `responseProps`  | `FakerValue`                                       | No       | Structure of Faker.js values (string paths, functions, nested). [Read more about response props](#understanding-responseprops).                                                                 |
-| `methods`        | array of `'GET'`, `'POST'`, `'PUT'`, or `'DELETE'` | No       | Restricts the endpoint to specific HTTP methods. Defaults to all methods.                                                                                                                       |
-| `conditions`     | `ConditionalResponse[]`                            | No       | Defines conditions for returning different responses based on headers or query parameters.                                                                                                      |
-| `cache`          | `boolean`                                          | No       | Enables caching of responses for the endpoint. Defaults to `false`.                                                                                                                             |
-| `responseFormat` | `(data: any) => any`                               | No       | A function to transform the response data before sending it.                                                                                                                                    |
+| Option           | Type                                               | Required | Default                            | Description                                                                                                                                                                             |
+| ---------------- | -------------------------------------------------- | -------- | ---------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `url`            | `string`                                           | Yes      | N/A                                | API path (e.g. `/api/users`)                                                                                                                                                            |
+| `total`          | `number`                                           | No       | 10                                 | Total number of items to return. Can be overridden via `?total=<value>` in the URL.                                                                                                     |
+| `perPage`        | `number`                                           | No       | 10                                 | Number of items per page to return. Can be overridden via `?per_page=<value>` in the URL.                                                                                               |
+| `pagination`     | `boolean`                                          | No       | `false`                            | Whether to split results into pages                                                                                                                                                     |
+| `seed`           | `number`                                           | No       | None                               | Seed to make output deterministic. See [Faker seed documentation](https://fakerjs.dev/api/faker#seed) for details.                                                                      |
+| `singular`       | `boolean`                                          | No       | `false`                            | Whether the endpoint returns an array of objects as defined by `responseProps` (`false`) or a single, unwrapped object (`true`). [Read more on singular endpoints](#singular-endpoint). |
+| `responseProps`  | `FakerValue`                                       | No       | `{}`                               | Structure of Faker.js values (string paths, functions, nested). [Read more about response props](#understanding-responseprops).                                                         |
+| `methods`        | array of `'GET'`, `'POST'`, `'PUT'`, or `'DELETE'` | No       | `['GET', 'POST', 'PUT', 'DELETE']` | Restricts the endpoint to specific HTTP methods. Defaults to all methods.                                                                                                               |
+| `conditions`     | `ConditionalResponse[]`                            | No       | `undefined`                        | Defines conditions for returning different responses based on headers or query parameters.                                                                                              |
+| `cache`          | `boolean`                                          | No       | `false`                            | Enables caching of responses for the endpoint                                                                                                                                           |
+| `responseFormat` | `(data: any) => any`                               | No       | `undefined`                        | A function to transform the response data before sending it.                                                                                                                            |
 
-### Example
+### Expanded Example
+
+The following config creates endpoints at:
+
+- `/api/posts`
+- `/api/conditional`
+- `/api/cached`
+- `/api/formatted`
 
 ```ts
 import { defineConfig } from 'vite'
@@ -115,7 +115,6 @@ vitePluginFakery({
       perPage: 6,
       pagination: true,
       seed: 1234,
-      singular: false,
       responseProps: {
         title: 'lorem.sentence',
         date: 'date.past',
@@ -173,34 +172,13 @@ vitePluginFakery({
         },
       }),
     },
-    {
-      url: '/api/example',
-      responseProps: {
-        name: 'person.fullName',
-        email: 'internet.email',
-      },
-      cache: true,
-      conditions: [
-        {
-          when: { query: { key: 'value' } },
-          staticResponse: { message: 'Condition met!' },
-        },
-      ],
-      responseFormat: (data) => ({
-        customWrapper: {
-          data,
-          timestamp: new Date().toISOString(),
-        },
-      }),
-    },
-    // … more endpoints
   ],
 }),
 ```
 
 #### Singular Endpoint
 
-You can configure an endpoint to return a single object instead of an array of objects (default) by using the `singular` option. This is useful for endpoints that represent a single resource, such as a user profile or a specific product. Note that `perPage` and `total` options are not applicable for `singular` endpoints.
+You can also configure an endpoint to return a single object instead of an array of objects (default) by setting the `singular` prop to `true`. This is useful for endpoints that represent a single resource, such as a user profile or a specific product. _Note that pagination options will not be applied_.
 
 ```ts
 import { defineConfig } from 'vite'
@@ -210,7 +188,7 @@ vitePluginFakery({
   endpoints: [
     {
       url: '/api/user',
-      singular: true, // Enable singular response
+      singular: true, // enable singular response
       responseProps: {
         first_name: 'person.firstName',
         last_name: 'person.lastName',
@@ -235,16 +213,16 @@ Open `http://localhost:<vite-port>/api/user` in your browser to view the result.
 
 This endpoint does not include pagination or a `data` array, as it is designed to return a single object.
 
----
-
 ### Understanding `responseProps`
 
-To specify what data will be included in your API response, you can use any of the method paths from the [Faker API](https://fakerjs.dev/api), for example:
+To specify what data will be included for each value in your API response, you can use any of the method paths from the [Faker API](https://fakerjs.dev/api), for example:
 
 - `'internet.email'`
 - `'person.firstName'`
 - `'image.avatar'`
 - `'commerce.price'`
+
+Static values (strings, numbers, booleans) are also accepted.
 
 You can also define nested structures as deep as you want:
 
@@ -277,7 +255,9 @@ responseProps: {
 }
 ```
 
-Static values (strings, numbers, booleans) are also accepted. _Important: If using a static string value that has a period, it must be escaped with a second period (".."), or else it will be parsed as Faker content._
+#### Escaping periods
+
+If using a static string value that has a period, it must be escaped with a second period (e.g. ".."), or else it will be parsed as Faker content.
 
 Example:
 
@@ -286,8 +266,6 @@ responseProps: {
   myStaticValue: 'Hi.. My name is George!', // 'Hi. My name is George!'
 }
 ```
-
----
 
 ### ⚙️ External JSON Config
 
@@ -345,8 +323,6 @@ If you encounter a bug or have a feature request, please [open an issue](https:/
 
 - [Faker API Docs](https://fakerjs.dev/api)
 - [Vite config](https://vite.dev/config/)
-
----
 
 ## 🪪 License
 
