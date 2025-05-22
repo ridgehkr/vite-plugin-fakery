@@ -162,7 +162,9 @@ export function createEndpointHandler(endpoint: EndpointConfig) {
     // Automatically enable pagination if perPage is set
     const isPaginationEnabled =
       endpoint.pagination === true ||
-      (endpoint.pagination !== false && endpoint.perPage !== undefined)
+      (!endpoint.pagination &&
+        typeof Number.isInteger(perPage) === 'number' &&
+        perPage > 0)
 
     // Calculate total pages
     const totalPages = Math.max(1, Math.ceil(total / perPage))
@@ -276,7 +278,7 @@ export function createEndpointHandler(endpoint: EndpointConfig) {
     // Prepare the result based on singular or paginated response
     const result = endpoint.singular
       ? filteredData[0] || {}
-      : endpoint.pagination
+      : isPaginationEnabled
         ? {
             data: filteredData,
             page,
