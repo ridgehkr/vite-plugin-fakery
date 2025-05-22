@@ -159,6 +159,11 @@ export function createEndpointHandler(endpoint: EndpointConfig) {
       10,
     )
 
+    // Automatically enable pagination if perPage is set
+    const isPaginationEnabled =
+      endpoint.pagination === true ||
+      (endpoint.pagination !== false && endpoint.perPage !== undefined)
+
     // Calculate total pages
     const totalPages = Math.max(1, Math.ceil(total / perPage))
 
@@ -167,11 +172,11 @@ export function createEndpointHandler(endpoint: EndpointConfig) {
     if (isNaN(page) || page < 1) page = 1
 
     // Clamp page to totalPages if pagination is enabled
-    if (endpoint.pagination && page > totalPages) page = totalPages
+    if (isPaginationEnabled && page > totalPages) page = totalPages
 
     // Calculate start and end IDs for the current page
-    const startId = endpoint.pagination ? (page - 1) * perPage + 1 : 1
-    const endId = endpoint.pagination
+    const startId = isPaginationEnabled ? (page - 1) * perPage + 1 : 1
+    const endId = isPaginationEnabled
       ? Math.min(startId + perPage - 1, total)
       : total
 
@@ -221,7 +226,7 @@ export function createEndpointHandler(endpoint: EndpointConfig) {
 
     // Generate data with resolved properties
     const data = Array.from({
-      length: endpoint.pagination ? Math.max(0, endId - startId + 1) : total,
+      length: isPaginationEnabled ? Math.max(0, endId - startId + 1) : total,
     }).map((_, i) => {
       const resolvedProps = Object.fromEntries(
         Object.entries(endpoint.responseProps || {}).map(([key, value]) => {
@@ -242,7 +247,7 @@ export function createEndpointHandler(endpoint: EndpointConfig) {
         }),
       )
       return {
-        id: endpoint.pagination ? startId + i : i + 1,
+        id: isPaginationEnabled ? startId + i : i + 1,
         ...resolvedProps,
       }
     })
