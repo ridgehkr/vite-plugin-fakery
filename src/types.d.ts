@@ -1,11 +1,17 @@
 import type { Faker } from '@faker-js/faker'
 
+/**
+ * Options for acceptable values to be parsed by the Faker library.
+ */
 export type FakerDefinition =
   | string
   | ((faker: Faker) => unknown)
   | FakerDefinition[]
   | { [key: string]: FakerDefinition }
 
+/**
+ *
+ */
 export interface ConditionalResponse {
   when: { headers?: Record<string, string>; query?: Record<string, string> }
   status?: number
@@ -13,12 +19,33 @@ export interface ConditionalResponse {
   staticResponse?: Record<string, any>
 }
 
+/**
+ * Function to transform the response data before sending it back to the client.
+ */
 export interface ResponseTransformation {
   (data: any): any
 }
 
+/**
+ * Ascending or descending order for sorting.
+ */
 export type SortOrder = 'asc' | 'desc'
 
+/**
+ * Customizable query parameters for an endpoint.
+ */
+export type QueryParams = {
+  search?: string
+  sort?: string
+  order?: SortOrder
+  filter?: string
+  per_page?: string
+  total?: string
+}
+
+/**
+ * Configuration options for a single endpoint.
+ */
 export interface EndpointConfig {
   url: string
   seed?: number
@@ -36,16 +63,12 @@ export interface EndpointConfig {
   cache?: boolean
   methods?: ('GET' | 'POST' | 'PUT' | 'DELETE')[]
   logRequests?: boolean
-  queryParams?: {
-    search?: string
-    sort?: string
-    order?: SortOrder
-    filter?: string
-    per_page?: string // Allow override for perPage
-    total?: string // Allow override for total
-  }
+  queryParams?: QueryParams
 }
 
+/**
+ * Options for the Vite plugin.
+ */
 export interface FakeryPluginOptions {
   endpoints: EndpointConfig[]
 }

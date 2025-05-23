@@ -17,7 +17,7 @@ export function resolveFakerValue(definition: FakerDefinition): any {
     return definition(faker)
   }
 
-  // Handle string paths
+  // handle path strings
   if (typeof definition === 'string') {
     const pathParts = definition.split('.')
     let result: any = faker
@@ -30,12 +30,12 @@ export function resolveFakerValue(definition: FakerDefinition): any {
     return typeof result === 'function' ? result() : result
   }
 
-  // Handle arrays
+  // arrays of faker values
   if (Array.isArray(definition)) {
     return definition.map((def) => resolveFakerValue(def))
   }
 
-  // Handle objects
+  // objects of faker values
   if (typeof definition === 'object' && definition !== null) {
     return Object.fromEntries(
       Object.entries(definition).map(([key, val]) => [
@@ -45,5 +45,6 @@ export function resolveFakerValue(definition: FakerDefinition): any {
     )
   }
 
-  return null
+  // handle null and primitives
+  return definition
 }

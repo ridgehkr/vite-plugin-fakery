@@ -26,6 +26,7 @@ const vitePluginFakery = (
 
   return {
     name: 'vite-plugin-fakery',
+    apply: 'serve',
     configureServer(server) {
       for (const endpoint of options.endpoints) {
         console.log(

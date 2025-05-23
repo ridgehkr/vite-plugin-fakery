@@ -363,14 +363,14 @@ describe('Endpoint Handler Features', () => {
       const req1 = createMockReq('/test-cache')
       const { res: res1, chunks: chunks1 } = createMockRes()
 
-      // First request - should generate a new response
+      // first request - should generate a new response
       await handler(req1, res1)
       const response1 = JSON.parse(chunks1[0])
 
       const req2 = createMockReq('/test')
       const { res: res2, chunks: chunks2 } = createMockRes()
 
-      // Second request - should return the cached response
+      // second request - should return the cached response
       await handler(req2, res2)
       const response2 = JSON.parse(chunks2[0])
 
@@ -419,10 +419,12 @@ describe('Endpoint Handler Features', () => {
       }
       const handler = createEndpointHandler(endpoint)
 
+      // first request with query parameter
       const req1 = createMockReq('/test-cache-query?key=value1')
       const { res: res1, chunks: chunks1 } = createMockRes()
       await handler(req1, res1)
 
+      // second request with different query parameter - should not use cache
       const req2 = createMockReq('/test-cache-query?key=value2')
       const { res: res2, chunks: chunks2 } = createMockRes()
       await handler(req2, res2)

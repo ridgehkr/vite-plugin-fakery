@@ -2,15 +2,24 @@ import { resolveFakerValue } from './fakerResolver.js'
 import { faker } from '@faker-js/faker'
 import type { SortOrder, EndpointConfig, ResponseTransformation } from './types'
 import type { IncomingMessage, ServerResponse } from 'http'
+import QuickLRU from 'quick-lru'
 
 // default total number of items to generate (may or may not be paginated)
 const DEFAULT_TOTAL_ITEMS = 10
 
-// In-memory cache store for endpoint responses
-const cacheStore = new Map<string, any>()
+// default number of items per page (if pagination is enabled)
+const DEFAULT_PER_PAGE = 10
+
+// store the last 100 cached responses (caching is optional)
+const cacheStore = new QuickLRU<string, any>({
+  maxSize: 100,
+  maxAge: 5 * 60 * 1000, // 5 minutes
+})
 
 /**
  * Determines if the provided order is a valid sort order ('asc' or 'desc').
+ * @param {unknown} order - The order to validate
+ * @returns {boolean} True if the order is valid, false otherwise
  */
 function isValidSortOrder(order: unknown): order is SortOrder {
   return order === 'asc' || order === 'desc'
@@ -41,6 +50,12 @@ function resolveResponsePropValue(key: string, value: any): [string, any] {
 
 /**
  * Sends JSON response after optional delay, applying optional transformFn.
+ * @param {ServerResponse} res - The HTTP response object
+ * @param {number} status - HTTP status code
+ * @param {any} data - The response data
+ * @param {number} [delay] - Optional delay in milliseconds
+ * @param {ResponseTransformation} [transformFn] - Optional transformation function
+ * @returns {void}
  */
 function sendResponse(
   res: ServerResponse,
@@ -60,6 +75,10 @@ function sendResponse(
 
 /**
  * Sends JSON error response immediately.
+ * @param {ServerResponse} res - The HTTP response object
+ * @param {number} status - HTTP status code
+ * @param {any} body - The error response body
+ * @returns {void}
  */
 function sendJson(res: ServerResponse, status: number, body: unknown): void {
   res.statusCode = status
@@ -69,6 +88,9 @@ function sendJson(res: ServerResponse, status: number, body: unknown): void {
 
 /**
  * Searches array of objects for term in any string field.
+ * @param {T[]} data - Array of objects to search
+ * @param {string} term - Search term
+ * @returns {T[]} Filtered array of objects containing the search term
  */
 function searchData<T extends Record<string, unknown>>(
   data: T[],
@@ -84,6 +106,10 @@ function searchData<T extends Record<string, unknown>>(
 
 /**
  * Filters array of objects by exact match on field.
+ * @param {T[]} data - Array of objects to filter
+ * @param {string} field - Field name to filter by
+ * @param {string} value - Value to match
+ * @returns {T[]} Filtered array of objects matching the field and value
  */
 function filterData<T extends Record<string, unknown>>(
   data: T[],
@@ -95,6 +121,10 @@ function filterData<T extends Record<string, unknown>>(
 
 /**
  * Sorts array of objects by field and order.
+ * @param {T[]} data - Array of objects to sort
+ * @param {string} field - Field name to sort by
+ * @param {SortOrder} order - Sort order ('asc' or 'desc')
+ * @returns {T[]} Sorted array of objects
  */
 function sortData<T extends Record<string, unknown>>(
   data: T[],
@@ -113,6 +143,9 @@ function sortData<T extends Record<string, unknown>>(
 
 /**
  * Parses request URL and constructs cacheKey.
+ * @param {IncomingMessage} req - The HTTP request object
+ * @param {EndpointConfig} endpoint - The endpoint configuration
+ * @returns {{ url: URL; cacheKey: string }} Parsed URL and cache key
  */
 function parseRequest(
   req: IncomingMessage,
@@ -125,6 +158,9 @@ function parseRequest(
 
 /**
  * Validates HTTP method.
+ * @param {IncomingMessage} req - The HTTP request object
+ * @param {EndpointConfig} endpoint - The endpoint configuration
+ * @returns {boolean} True if method is valid, false otherwise
  */
 function validateMethod(
   req: IncomingMessage,
@@ -135,6 +171,8 @@ function validateMethod(
 
 /**
  * Simulates random error based on errorRate.
+ * @param {EndpointConfig} endpoint - The endpoint configuration
+ * @returns {boolean} True if error should be simulated, false otherwise
  */
 function shouldSimulateError(endpoint: EndpointConfig): boolean {
   return (
@@ -144,16 +182,24 @@ function shouldSimulateError(endpoint: EndpointConfig): boolean {
 
 /**
  * Retrieves cached response if enabled.
+ * @param {string} cacheKey - The cache key
+ * @param {EndpointConfig} endpoint - The endpoint configuration
+ * @returns {T | undefined} Cached response or undefined
  */
 function getCachedResponse<T>(
   cacheKey: string,
   endpoint: EndpointConfig,
 ): T | undefined {
-  return endpoint.cache ? (cacheStore.get(cacheKey) as T) : undefined
+  return endpoint.cache && cacheStore.has(cacheKey)
+    ? (cacheStore.get(cacheKey) as T)
+    : undefined
 }
 
 /**
  * Extracts and normalizes query params and pagination info.
+ * @param {URL} url - The parsed URL object
+ * @param {EndpointConfig} endpoint - The endpoint configuration
+ * @returns {object} Object containing search, filter, sort, pagination, and total info
  */
 function buildParams(url: URL, endpoint: EndpointConfig) {
   const qp = endpoint.queryParams ?? {}
@@ -167,24 +213,34 @@ function buildParams(url: URL, endpoint: EndpointConfig) {
   const filterValue = filterField
     ? (url.searchParams.get(filterField) ?? '')
     : ''
-  const sortField = url.searchParams.get(sortKey) ?? sortKey
+
+  // only set sortField if the sort param was provided
+  const sortField = url.searchParams.has(sortKey)
+    ? url.searchParams.get(sortKey)!
+    : undefined
 
   const perPageRaw = parseInt(
     url.searchParams.get(qp.per_page ?? 'per_page') ?? String(endpoint.perPage),
     10,
   )
-  const totalRaw =
-    parseInt(
-      url.searchParams.get(qp.total ?? 'total') ?? String(endpoint.total),
-      10,
-    ) || DEFAULT_TOTAL_ITEMS
 
+  const parsedRawTotal = parseInt(
+    url.searchParams.get(qp.total ?? 'total') ?? String(endpoint.total),
+    10,
+  )
+  const totalRaw = isNaN(parsedRawTotal) ? DEFAULT_TOTAL_ITEMS : parsedRawTotal
+
+  // determine if pagination is enabled either directly or implied by perPage and total
   const paginationEnabled =
     endpoint.pagination ||
     (Number.isInteger(perPageRaw) &&
       perPageRaw > 0 &&
       endpoint.pagination !== false)
-  const perPage = paginationEnabled ? perPageRaw : totalRaw
+
+  const perPage = paginationEnabled
+    ? (perPageRaw ?? DEFAULT_PER_PAGE)
+    : totalRaw
+
   const total = totalRaw
   const totalPages = Math.max(1, Math.ceil(total / perPage))
   const page = Math.min(
@@ -250,10 +306,11 @@ function generateData(
   range: { startId: number; endId: number },
 ): Record<string, unknown>[] {
   const count = Math.max(0, range.endId - range.startId + 1)
+  const responseProps = endpoint.responseProps ?? {}
   return Array.from({ length: count }).map((_, i) => {
     const id = range.startId + i
     const props = Object.fromEntries(
-      Object.entries(endpoint.responseProps).map(([k, v]) =>
+      Object.entries(responseProps).map(([k, v]) =>
         resolveResponsePropValue(k, v),
       ),
     )
@@ -375,7 +432,7 @@ export function createEndpointHandler(endpoint: EndpointConfig) {
       // Apply search, filter, sort but ignore page/perPage
       const finalData = applyTransforms(rawData, params)
       const result = finalData[0] ?? {}
-      // Cache and respond
+
       if (endpoint.cache) cacheStore.set(cacheKey, result)
       return sendResponse(
         res,

@@ -80,19 +80,25 @@ Open `http://localhost:<vite-port>/api/users` in your browser to view the result
 
 Each endpoint can be individually configured with the following:
 
-| Option           | Type                                               | Required | Default                            | Description                                                                                                                                                                             |
-| ---------------- | -------------------------------------------------- | -------- | ---------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `url`            | `string`                                           | Yes      | N/A                                | API path (e.g. `/api/users`)                                                                                                                                                            |
-| `total`          | `number`                                           | No       | 10                                 | Total number of items to return. Can be overridden via `?total=<value>` in the URL.                                                                                                     |
-| `perPage`        | `number`                                           | No       | 10                                 | Number of items per page to return. Can be overridden via `?per_page=<value>` in the URL.                                                                                               |
-| `pagination`     | `boolean`                                          | No       | `false`                            | Whether to split results into pages                                                                                                                                                     |
-| `seed`           | `number`                                           | No       | None                               | Seed to make output deterministic. See [Faker seed documentation](https://fakerjs.dev/api/faker#seed) for details.                                                                      |
-| `singular`       | `boolean`                                          | No       | `false`                            | Whether the endpoint returns an array of objects as defined by `responseProps` (`false`) or a single, unwrapped object (`true`). [Read more on singular endpoints](#singular-endpoint). |
-| `responseProps`  | `FakerValue`                                       | No       | `{}`                               | Structure of Faker.js values (string paths, functions, nested). [Read more about response props](#understanding-responseprops).                                                         |
-| `methods`        | array of `'GET'`, `'POST'`, `'PUT'`, or `'DELETE'` | No       | `['GET', 'POST', 'PUT', 'DELETE']` | Restricts the endpoint to specific HTTP methods. Defaults to all methods.                                                                                                               |
-| `conditions`     | `ConditionalResponse[]`                            | No       | `undefined`                        | Defines conditions for returning different responses based on headers or query parameters.                                                                                              |
-| `cache`          | `boolean`                                          | No       | `false`                            | Enables caching of responses for the endpoint                                                                                                                                           |
-| `responseFormat` | `(data: any) => any`                               | No       | `undefined`                        | A function to transform the response data before sending it.                                                                                                                            |
+| Option                                          | Type                                               | Required | Default                            | Description                                                                                                                                                                             |
+| ----------------------------------------------- | -------------------------------------------------- | -------- | ---------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `url`                                           | `string`                                           | Yes      | N/A                                | API path (e.g. `/api/users`)                                                                                                                                                            |
+| `total`                                         | `number`                                           | No       | `10`                               | Total number of items to return. Can be overridden via `?total=<value>` in the URL. Automatically enables pagination if set.                                                            |
+| `perPage`                                       | `number`                                           | No       | `10`                               | Number of items per page to return. Can be overridden via `?per_page=<value>` in the URL. Automatically enables pagination if set.                                                      |
+| `pagination`                                    | `boolean`                                          | No       | `false`                            | Whether to split results into pages                                                                                                                                                     |
+| `seed`                                          | `number`                                           | No       | None                               | Seed to make output deterministic. See [Faker seed documentation](https://fakerjs.dev/api/faker#seed) for details.                                                                      |
+| `singular`                                      | `boolean`                                          | No       | `false`                            | Whether the endpoint returns an array of objects as defined by `responseProps` (`false`) or a single, unwrapped object (`true`). [Read more on singular endpoints](#singular-endpoint). |
+| [`responseProps`](#understanding-responseprops) | `FakerDefinition`                                  | No       | `{}`                               | Structure of Faker.js values (string paths, functions, nested). [Read more about response props](#understanding-responseprops).                                                         |
+| `methods`                                       | array of `'GET'`, `'POST'`, `'PUT'`, or `'DELETE'` | No       | `['GET', 'POST', 'PUT', 'DELETE']` | Restricts the endpoint to specific HTTP methods. Defaults to all methods.                                                                                                               |
+| [`conditions`](#conditional-responses)          | `ConditionalResponse[]`                            | No       | `undefined`                        | Defines conditions for returning different responses based on headers or query parameters.                                                                                              |
+| `cache`                                         | `boolean`                                          | No       | `false`                            | Enables caching of responses for the endpoint. Entries older than 5 minutes auto-expire, and once 100 items are exceeded, the least-recently-used ones drop off.                        |
+| `responseFormat`                                | `(data: any) => any`                               | No       | `undefined`                        | A function to transform the response data before sending it.                                                                                                                            |
+| `errorRate`                                     | `number`                                           | No       | `undefined`                        | Probability (0-1) of returning a simulated 500 error.                                                                                                                                   |
+| `status`                                        | `number`                                           | No       | `undefined`                        | Override the endpoint's HTTP status code                                                                                                                                                |
+| `delay`                                         | `number`                                           | No       | `undefined`                        | Time in milliseconds to wait before sending response                                                                                                                                    |
+| `staticResponse`                                | `Record<string, any>`                              | No       | `undefined`                        | Fixed object to be returned                                                                                                                                                             |
+| `logRequests`                                   | `boolean`                                          | No       | `false`                            | Log each incoming request to the terminal                                                                                                                                               |
+| `queryParams`                                   | `QueryParams`                                      | No       | `{}`                               | Customize the query param names for `search`, `filter`, `sort`, `per_page`, and `total`                                                                                                 |
 
 ### Expanded Example
 
@@ -259,13 +265,52 @@ responseProps: {
 
 If using a static string value that has a period, it must be escaped with a second period (e.g. ".."), or else it will be parsed as Faker content.
 
-Example:
+##### Example:
 
 ```ts
 responseProps: {
   myStaticValue: 'Hi.. My name is George!', // 'Hi. My name is George!'
 }
 ```
+
+#### Conditional Responses
+
+You can return different responses from an endpoint based on request headers or query parameters using the conditions option. Each condition specifies a when clause (with headers and/or query), and a custom response or status to return if matched. The first matching condition is used.
+
+##### Example:
+
+```ts
+import { defineConfig } from 'vite'
+import vitePluginFakery from 'vite-plugin-fakery'
+
+vitePluginFakery({
+  endpoints: [
+    {
+      url: '/api/users',
+      // … other endpoint settings
+      conditions: [
+        {
+          when: { headers: { 'x-api-key': 'secret' } },
+          status: 200,
+          staticResponse: { message: 'You provided the correct API key!' },
+        },
+        {
+          when: { query: { preview: 'true' } },
+          status: 200,
+          staticResponse: { message: 'Preview mode enabled.' },
+        },
+      ]
+    },
+  ],
+}),
+```
+
+- If a request to this endpoint includes the header `x-api-key: secret`, it will return `{ message: 'You provided the correct API key!' }`.
+
+- If the query string includes `?preview=true`, it will return `{ message: 'Preview mode enabled.' }`.
+  If neither condition matches, the normal responseProps will be used.
+
+#### Status Codes
 
 ### ⚙️ External JSON Config
 
