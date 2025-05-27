@@ -9,7 +9,7 @@ describe('resolveFakerValue', () => {
   })
 
   it('resolves function that returns value', () => {
-    const value = resolveFakerValue((faker) => faker.internet.userName())
+    const value = resolveFakerValue((faker) => faker.person.firstName())
     expect(typeof value).toBe('string')
   })
 
