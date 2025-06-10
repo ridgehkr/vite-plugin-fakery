@@ -87,7 +87,7 @@ Each endpoint can be individually configured with the following:
 | `perPage`                                       | `number`                                           | No       | `10`                               | Number of items per page to return. Can be overridden via `?per_page=<value>` in the URL. Automatically enables pagination if set.                               |
 | `pagination`                                    | `boolean`                                          | No       | `false`                            | Whether to split results into pages                                                                                                                              |
 | `seed`                                          | `number`                                           | No       | None                               | Seed to make output deterministic. See [Faker seed documentation](https://fakerjs.dev/api/faker#seed) for details.                                               |
-| [`singular`](#singular-endpoint)                | `boolean`                                          | No       | `false`                            | Whether the endpoint returns an array of objects as defined by `responseProps` (`false`) or a single, unwrapped object (`true`).                                 |
+| [`singular`](#singular-endpoints)               | `boolean`                                          | No       | `false`                            | Whether the endpoint returns an array of objects as defined by `responseProps` (`false`) or a single, unwrapped object (`true`).                                 |
 | [`responseProps`](#understanding-responseprops) | `FakerDefinition`                                  | No       | `{}`                               | Structure of Faker.js values (string paths, functions, nested). [Read more about response props](#understanding-responseprops).                                  |
 | `methods`                                       | array of `'GET'`, `'POST'`, `'PUT'`, or `'DELETE'` | No       | `['GET', 'POST', 'PUT', 'DELETE']` | Restricts the endpoint to specific HTTP methods. Defaults to all methods.                                                                                        |
 | [`conditions`](#conditional-responses)          | `ConditionalResponse[]`                            | No       | `undefined`                        | Defines conditions for returning different responses based on headers or query parameters.                                                                       |
@@ -360,6 +360,16 @@ export default defineConfig({
   ]
 }
 ```
+
+### 🛠️ Why This Is a Vite-Only Plugin
+
+**vite-plugin-fakery** is designed specifically for use with [Vite](https://vite.dev/) and is not compatible with other build tools or dev servers (such as Webpack, Rollup, or Parcel). This is because it relies on Vite-specific plugin hooks and middleware APIs to inject mock endpoints directly into the Vite development server.
+
+Key Vite-only compatibility distinguishments:
+
+- **Vite Plugin API:** The plugin uses Vite's plugin system (`configureServer`, `handleHotUpdate`, etc.) to register and manage mock endpoints.
+- **Dev Server Middleware:** It injects custom middleware into the Vite dev server pipeline, which is not available in other tools.
+- **Hot Reload Integration:** The plugin leverages Vite's hot module replacement (HMR) and config reload features for instant updates to mock data and endpoints.
 
 ## ✨ Contributing
 
