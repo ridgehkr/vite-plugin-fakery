@@ -2,7 +2,7 @@
 
 Define mock API endpoints in your [Vite](https://vite.dev/) dev server that return structured, auto-generated JSON data from [Faker](https://fakerjs.dev). Useful for building and testing UIs without relying on a real backend or wracking your brain trying to make up example content.
 
-This plugin is compatible with Vite 4.x+.
+This plugin is compatible with Vite 2.x and above.
 
 ## Table of Contents
 
